@@ -1,14 +1,14 @@
 # Next Task
 
 ## Recommended Next Milestone
-Define the first concrete `Foresight Lab` implementation milestone in documentation before expanding the package structure.
+Define the next implementation milestone that builds on `Foresight Lab v0.1` interaction and session architecture without introducing hardware-specific integrations.
 
 ## Why This Is Next
-- The repository now has a stronger architectural map than before.
-- The next highest-value step is choosing the first small, truthful implementation target within the Lab phase.
-- That should happen before creating additional implementation packages or integrations.
+- A minimal normalized interaction and session flow now exists.
+- The next highest-value step is extending that flow carefully while preserving hardware independence and small testable boundaries.
+- New code should continue to avoid premature integrations or unnecessary packages.
 
 ## Suggested Scope For Planning
-- identify the first Lab workflow to support
-- define what counts as implemented versus simulated
-- decide what new package boundaries are actually required for that milestone
+- decide whether the next milestone should focus on richer session events, replay-friendly event capture, or broader simulated interaction cases
+- define what remains simulated versus what stays explicitly deferred
+- introduce new package boundaries only if the next milestone truly requires them

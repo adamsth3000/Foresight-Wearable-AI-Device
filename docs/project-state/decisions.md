@@ -29,3 +29,11 @@
 ### Keep Intelligence Independent From Hardware And Display
 - Decision: Treat hardware and display systems as future adapters around the core assistant rather than as the architecture center.
 - Rationale: This preserves portability from the Lab platform to Field workflows and later wearable hardware.
+
+### Start Lab Implementation With Normalized Interaction And Session Models
+- Decision: Implement the first Foresight Lab milestone as small normalized `interaction` and `sessions` packages.
+- Rationale: This provides a hardware-independent way to represent simulated voice or gesture inputs, explicit intents, and session lifecycle transitions before adding real adapters or richer intelligence.
+
+### Support Adventure Recording Through Explicit Confirmation
+- Decision: Model the initial adventure flow as a confirmation-based session proposal rather than immediate recording.
+- Rationale: This matches the planned interaction concept and creates a clean foundation for intent resolution, session state transitions, and future multimodal capture events.

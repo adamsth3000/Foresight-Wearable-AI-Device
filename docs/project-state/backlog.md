@@ -1,16 +1,17 @@
 # Near-Term Backlog
 
 ## Ready Next
-- Define the first concrete `Foresight Lab` implementation milestone and feature boundaries.
-- Decide what additional package boundaries are justified by that milestone.
+- Define the next concrete milestone after `Foresight Lab v0.1` interaction and session architecture.
+- Decide whether richer event capture or replay-oriented modeling should come next.
 - Introduce CI automation for linting, typing, and tests.
 - Add structured configuration validation when future subsystems require it.
 
 ## Deferred By Design
 - AI assistant orchestration
 - Computer vision modules
-- voice interaction work
-- intentional gesture interaction work
+- speech recognition and voice-input integrations
+- gesture recognition and EMG integrations
 - GPS or GoPro integrations
 - hardware interface work
+- persistence and replay infrastructure
 - AR or wearable display work
