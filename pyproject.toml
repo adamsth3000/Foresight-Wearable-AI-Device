@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "foresight-wearable-ai-device"
+version = "0.1.0"
+description = "Development scaffold for a wearable AI device prototype."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Foresight Project Contributors" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "coverage[toml]>=7.6.0",
+  "mypy>=1.11.0",
+  "pytest>=8.3.0",
+  "pytest-cov>=5.0.0",
+  "ruff>=0.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/foresight_device"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+  "unit: fast tests for isolated modules",
+  "integration: tests that verify multiple components together",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["foresight_device"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+strict_equality = true
+mypy_path = "src"
