@@ -35,10 +35,12 @@ This example is intended to illustrate future work around:
 - multimodal event or session capture
 
 ## Current Implemented State
-The repository now includes a small `Foresight Lab v0.1` implementation milestone:
+The repository now includes small implemented Lab milestones:
 - normalized simulated interaction models for voice, gesture, text, and system modalities
 - explicit intent resolution for `START_ADVENTURE`, `CONFIRM_YES`, `CONFIRM_NO`, and `UNKNOWN`
 - a minimal adventure-session lifecycle with confirmation before recording
 - normalized session lifecycle events for proposed, confirmed, started, cancelled, and ended states
+- a minimal terminal-based command simulator that converts typed text into normalized `TEXT` interactions and displays assistant responses
+- compact session inspection through a terminal `status` command
 
-This implemented scope is still intentionally limited. It does not include speech recognition, gesture recognition, media ingestion, GPS integration, replay, persistence, or hardware adapters.
+This implemented scope is still intentionally limited. It does not include speech recognition, gesture recognition, media ingestion, GPS integration, replay, persistence, audio playback, or hardware adapters.

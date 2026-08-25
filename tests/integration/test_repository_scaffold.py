@@ -13,6 +13,8 @@ def test_expected_scaffold_files_exist() -> None:
         repo_root / "docs" / "project-state" / "current-state.md",
         repo_root / "src" / "foresight_device" / "core" / "config.py",
         repo_root / "src" / "foresight_device" / "core" / "logging.py",
+        repo_root / "src" / "foresight_device" / "cli.py",
+        repo_root / "src" / "foresight_device" / "__main__.py",
         repo_root / "src" / "foresight_device" / "interaction" / "service.py",
         repo_root / "src" / "foresight_device" / "sessions" / "service.py",
     ]

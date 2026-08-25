@@ -3,7 +3,7 @@ Prototype for wearable AI device inspired by AI/AR smart glasses
 
 ## Current Status
 
-This repository is currently a development foundation for the long-term Foresight platform. It contains architecture documentation, contributor guidance, Python project structure, configuration, logging, and testing foundations so future implementation work has a clear and durable base.
+This repository is currently an early development foundation for the long-term Foresight platform. It contains architecture documentation, contributor guidance, Python project structure, configuration, logging, testing foundations, and a minimal terminal-based Lab simulator for manual interaction testing.
 
 The following are intentionally not implemented yet:
 - AI functionality
@@ -58,6 +58,20 @@ Foresight is a long-term wearable AI assistant platform that is expected to prog
 - Run tests: `pytest`
 - Run linting: `ruff check .`
 - Run type checks: `mypy src`
+
+## Run The Lab Simulator
+
+Start the minimal terminal simulator with:
+
+`python -m foresight_device`
+
+Supported commands:
+- normal text input
+- `status`
+- `exit`
+- `quit`
+
+This simulator currently reuses the implemented `Foresight Lab v0.1` interaction and session architecture. It does not provide speech recognition, audio output, hardware integration, or replay.
 
 ## Documentation
 

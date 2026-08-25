@@ -37,3 +37,7 @@
 ### Support Adventure Recording Through Explicit Confirmation
 - Decision: Model the initial adventure flow as a confirmation-based session proposal rather than immediate recording.
 - Rationale: This matches the planned interaction concept and creates a clean foundation for intent resolution, session state transitions, and future multimodal capture events.
+
+### Add A Minimal Terminal Simulator Before Any Hardware Input
+- Decision: Implement `Foresight Lab v0.2` as a small terminal-based CLI that routes typed text through the existing normalized interaction and session architecture.
+- Rationale: This provides a human-operable development interface for manual testing while preserving hardware independence and avoiding premature microphone, GUI, mobile, or device integrations.
