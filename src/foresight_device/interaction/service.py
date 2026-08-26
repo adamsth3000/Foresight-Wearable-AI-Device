@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from foresight_device.sessions.models import SessionEvent, SessionRecord
@@ -68,6 +69,10 @@ class InteractionService:
         if self._pending_context is not PendingInteractionContext.NONE:
             return self._process_pending_context(interaction)
 
+        match = self._interpreter.interpret(interaction)
+        if match.intent is not IntentType.UNKNOWN:
+            return self._process_intent(interaction, match.intent)
+
         if self._is_wake_phrase(interaction.content):
             self._assistant_state = AssistantState.LISTENING_FOR_COMMAND
             return InteractionOutcome(
@@ -78,8 +83,7 @@ class InteractionService:
                 ),
             )
 
-        match = self._interpreter.interpret(interaction)
-        return self._process_intent(interaction, match.intent)
+        return InteractionOutcome(intent=match.intent)
 
     def _process_pending_context(self, interaction: UserInteraction) -> InteractionOutcome:
         if self._pending_context is PendingInteractionContext.AWAITING_ADVENTURE_CONFIRMATION:
@@ -189,4 +193,5 @@ class InteractionService:
     def _is_wake_phrase(content: str) -> bool:
         """Keep deterministic wake handling outside ordinary intent interpretation."""
 
-        return " ".join(content.strip().lower().split()) == "hey foresight"
+        normalized = re.sub(r"[^\w\s]", " ", content.casefold())
+        return re.search(r"\bhey\s+foresight\b", normalized) is not None

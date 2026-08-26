@@ -1,3 +1,5 @@
+import pytest
+
 from foresight_device.interaction import (
     AssistantState,
     DeterministicIntentInterpreter,
@@ -99,6 +101,28 @@ def test_wake_phrase_acknowledges_without_using_intent_interpreter() -> None:
     assert outcome.assistant_response.metadata["simulated_acknowledgement_cue"] == "BEEP"
     assert service.assistant_state is AssistantState.LISTENING_FOR_COMMAND
     assert service.pending_context is PendingInteractionContext.NONE
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "Hey Foresight",
+        "hey foresight",
+        "Hey, foresight.",
+        "HEY FORESIGHT!",
+        "No, that's fine. Hey, foresight.",
+    ],
+)
+def test_wake_phrase_normalization_handles_transcription_formatting(transcript: str) -> None:
+    service = InteractionService()
+
+    outcome = service.process(
+        UserInteraction(content=transcript, modality=InteractionModality.VOICE)
+    )
+
+    assert outcome.assistant_response is not None
+    assert outcome.assistant_response.message == "Listening..."
+    assert service.assistant_state is AssistantState.LISTENING_FOR_COMMAND
 
 
 def test_deterministic_interpreter_supports_example_phrase_variations() -> None:

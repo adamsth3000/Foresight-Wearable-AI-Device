@@ -5,6 +5,7 @@ from foresight_device.cli import (
     render_assistant_response,
     render_session_status,
     render_status,
+    render_transcript,
 )
 from foresight_device.interaction import (
     AssistantResponse,
@@ -113,13 +114,22 @@ def test_status_includes_assistant_state_and_pending_context() -> None:
 def test_voice_transcript_reaches_existing_wake_handling() -> None:
     result = handle_command("voice", InteractionService(), FakeVoiceInput("Hey Foresight"))
 
-    assert result.lines == ("[BEEP]", "Foresight: Listening...")
+    assert result.lines == (
+        'Transcript: "Hey Foresight"',
+        "[BEEP]",
+        "Foresight: Listening...",
+    )
 
 
 def test_voice_command_handles_empty_transcript() -> None:
     result = handle_command("voice", InteractionService(), FakeVoiceInput("   "))
 
-    assert result.lines == ("No usable speech detected.",)
+    assert result.lines == ("Transcript: <none>", "Foresight: No usable speech detected.")
+
+
+def test_transcript_rendering_preserves_raw_text() -> None:
+    assert render_transcript("Hey Foresight") == 'Transcript: "Hey Foresight"'
+    assert render_transcript(None) == "Transcript: <none>"
 
 
 def test_voice_command_handles_unavailable_adapter() -> None:

@@ -7,9 +7,11 @@ from typing import TextIO
 
 from foresight_device.interaction import (
     AssistantResponse,
+    AssistantState,
     InteractionModality,
     InteractionService,
     InteractionSource,
+    PendingInteractionContext,
     UserInteraction,
 )
 from foresight_device.sessions import SessionRecord
@@ -43,6 +45,14 @@ def build_voice_interaction(transcript: str) -> UserInteraction:
         modality=InteractionModality.VOICE,
         source=InteractionSource.MICROPHONE,
     )
+
+
+def render_transcript(transcript: str | None) -> str:
+    """Render the raw Lab voice transcript before core interaction processing."""
+
+    if transcript is None or not transcript.strip():
+        return "Transcript: <none>"
+    return f'Transcript: "{transcript}"'
 
 
 def render_assistant_response(response: AssistantResponse) -> tuple[str, ...]:
@@ -123,9 +133,12 @@ def _handle_voice_command(
         return CommandResult(lines=(f"Voice input unavailable: {exc}",))
 
     if transcript is None or not transcript.strip():
-        return CommandResult(lines=("No usable speech detected.",))
+        return CommandResult(
+            lines=(render_transcript(transcript), "Foresight: No usable speech detected.")
+        )
 
-    return _process_interaction(build_voice_interaction(transcript), service)
+    result = _process_interaction(build_voice_interaction(transcript), service)
+    return CommandResult(lines=(render_transcript(transcript),) + result.lines)
 
 
 def _process_interaction(
@@ -143,6 +156,42 @@ def _process_interaction(
         return CommandResult(lines=("Foresight: No response available.",))
 
     return CommandResult(lines=render_assistant_response(outcome.assistant_response))
+
+
+def _run_bounded_voice_flow(
+    output_stream: TextIO,
+    service: InteractionService,
+    voice_input: VoiceInputAdapter,
+) -> None:
+    """Run one wake, command, and optional pending-context voice sequence."""
+
+    _render_voice_capture(output_stream, service, voice_input)
+
+    if not (
+        service.assistant_state is AssistantState.LISTENING_FOR_COMMAND
+        and service.pending_context is PendingInteractionContext.NONE
+    ):
+        return
+
+    _render_voice_capture(output_stream, service, voice_input)
+
+    if service.pending_context is not PendingInteractionContext.NONE:
+        _render_voice_capture(output_stream, service, voice_input)
+
+
+def _render_voice_capture(
+    output_stream: TextIO,
+    service: InteractionService,
+    voice_input: VoiceInputAdapter,
+) -> None:
+    """Render one explicit microphone capture without keeping it open."""
+
+    output_stream.write("Listening for one utterance...\n")
+    output_stream.flush()
+    result = handle_command("voice", service, voice_input)
+    for line in result.lines:
+        output_stream.write(f"{line}\n")
+    output_stream.flush()
 
 
 def run_cli(
@@ -174,8 +223,8 @@ def run_cli(
             return 0
 
         if raw_command.strip().lower() == "voice" and voice_input is not None:
-            output_stream.write("Listening for one utterance...\n")
-            output_stream.flush()
+            _run_bounded_voice_flow(output_stream, interaction_service, voice_input)
+            continue
 
         result = handle_command(raw_command, interaction_service, voice_input)
         for line in result.lines:
