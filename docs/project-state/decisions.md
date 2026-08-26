@@ -41,3 +41,15 @@
 ### Add A Minimal Terminal Simulator Before Any Hardware Input
 - Decision: Implement `Foresight Lab v0.2` as a small terminal-based CLI that routes typed text through the existing normalized interaction and session architecture.
 - Rationale: This provides a human-operable development interface for manual testing while preserving hardware independence and avoiding premature microphone, GUI, mobile, or device integrations.
+
+### Keep Wake Handling Separate From Intent Interpretation
+- Decision: Handle the exact simulated wake phrase deterministically in `InteractionService`, outside the ordinary `IntentInterpreter` boundary.
+- Rationale: Wake acknowledgement is a distinct control transition and should not constrain future semantic interpretation implementations.
+
+### Introduce A Small Intent Interpreter Boundary
+- Decision: Use an `IntentInterpreter` contract that returns an `IntentMatch`, with `DeterministicIntentInterpreter` as the v0.3 default.
+- Rationale: Phrase rules remain localized today while future semantic interpretation can use the same small contract without coupling the interaction service to a specific implementation.
+
+### Retain Simple Captures In Memory Only
+- Decision: Normalize note and shopping-item follow-up content as transient in-memory captures.
+- Rationale: This preserves a structured path for future persistence without prematurely adding a database, file storage, or repository layer.

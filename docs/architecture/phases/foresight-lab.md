@@ -42,5 +42,11 @@ The repository now includes small implemented Lab milestones:
 - normalized session lifecycle events for proposed, confirmed, started, cancelled, and ended states
 - a minimal terminal-based command simulator that converts typed text into normalized `TEXT` interactions and displays assistant responses
 - compact session inspection through a terminal `status` command
+- deterministic handling of the exact wake phrase `Hey Foresight`, followed by a simulated `[BEEP]` acknowledgement and `LISTENING_FOR_COMMAND` state
+- a small `IntentInterpreter` boundary with a deterministic implementation for constrained example phrases
+- explicit pending interaction context for adventure confirmation, note content, and shopping-item content
+- simulated note and shopping flows that retain normalized captured content in memory for a future persistence consumer
 
-This implemented scope is still intentionally limited. It does not include speech recognition, gesture recognition, media ingestion, GPS integration, replay, persistence, audio playback, or hardware adapters.
+The wake phrase is intentionally separate from ordinary intent interpretation. The current phrase rules are demonstrations for Lab testing, not a permanent language model or an exhaustive command vocabulary. The architecture leaves room for future priority handling, but no emergency path is implemented.
+
+This implemented scope is still intentionally limited. It does not include speech recognition, gesture recognition, media ingestion, GPS integration, replay, persistence, audio playback, AI or NLP systems, or hardware adapters.

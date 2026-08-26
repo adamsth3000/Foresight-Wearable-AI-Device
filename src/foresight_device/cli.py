@@ -37,7 +37,10 @@ def build_text_interaction(content: str) -> UserInteraction:
 def render_assistant_response(response: AssistantResponse) -> tuple[str, ...]:
     """Render a normalized assistant response for terminal output."""
 
-    lines = [f"Foresight: {response.message}"]
+    lines = []
+    if response.metadata.get("simulated_acknowledgement_cue") == "BEEP":
+        lines.append("[BEEP]")
+    lines.append(f"Foresight: {response.message}")
     cue = response.metadata.get("planned_confirmation_cue")
     if cue:
         lines.append(f"(Planned confirmation cue: {cue})")
@@ -58,6 +61,15 @@ def render_session_status(session: SessionRecord | None) -> tuple[str, ...]:
     )
 
 
+def render_status(service: InteractionService) -> tuple[str, ...]:
+    """Render session and interaction state for the terminal simulator."""
+
+    return render_session_status(service.sessions.current_session) + (
+        f"Assistant State: {service.assistant_state.value}",
+        f"Pending Context: {service.pending_context.value}",
+    )
+
+
 def handle_command(command: str, service: InteractionService) -> CommandResult:
     """Handle a single terminal command."""
 
@@ -68,7 +80,7 @@ def handle_command(command: str, service: InteractionService) -> CommandResult:
         return CommandResult(lines=("Exiting Foresight Lab.",), should_exit=True)
 
     if lowered == "status":
-        return CommandResult(lines=render_session_status(service.sessions.current_session))
+        return CommandResult(lines=render_status(service))
 
     if not normalized:
         return CommandResult()
@@ -93,7 +105,7 @@ def run_cli(
     """Run the minimal interactive Foresight terminal loop."""
 
     interaction_service = service or InteractionService()
-    output_stream.write("Foresight Lab v0.2\n")
+    output_stream.write("Foresight Lab v0.3\n")
     output_stream.write("Type a message, 'status', or 'exit'.\n")
 
     while True:

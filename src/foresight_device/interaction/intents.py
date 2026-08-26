@@ -1,4 +1,4 @@
-"""Minimal intent set for Foresight Lab v0.1."""
+"""Constrained intent types for the Foresight Lab simulator."""
 
 from __future__ import annotations
 
@@ -9,23 +9,19 @@ class IntentType(StrEnum):
     """Supported intents for the first interaction milestone."""
 
     START_ADVENTURE = "start_adventure"
+    TAKE_NOTE = "take_note"
+    ADD_SHOPPING_ITEM = "add_shopping_item"
     CONFIRM_YES = "confirm_yes"
     CONFIRM_NO = "confirm_no"
     UNKNOWN = "unknown"
 
 
 def resolve_intent(content: str) -> IntentType:
-    """Resolve a small, explicit intent set from simulated text."""
+    """Compatibility helper backed by the default deterministic interpreter."""
 
-    normalized = " ".join(content.strip().lower().split())
+    from .interpreter import DeterministicIntentInterpreter
+    from .models import InteractionModality, UserInteraction
 
-    if normalized in {"yes", "yeah", "yep", "confirm"}:
-        return IntentType.CONFIRM_YES
-
-    if normalized in {"no", "nope", "cancel"}:
-        return IntentType.CONFIRM_NO
-
-    if "going on an adventure" in normalized:
-        return IntentType.START_ADVENTURE
-
-    return IntentType.UNKNOWN
+    return DeterministicIntentInterpreter().interpret(
+        UserInteraction(content=content, modality=InteractionModality.TEXT)
+    ).intent

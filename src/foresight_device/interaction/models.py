@@ -23,6 +23,13 @@ class InteractionSource(StrEnum):
     SIMULATED = "simulated"
 
 
+class CapturedContentType(StrEnum):
+    """Kinds of transient content captured by a multi-step interaction."""
+
+    NOTE = "note"
+    SHOPPING_ITEM = "shopping_item"
+
+
 @dataclass(frozen=True, slots=True)
 class UserInteraction:
     """A normalized interaction event before any intent resolution."""
@@ -43,4 +50,14 @@ class AssistantResponse:
     response_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     confirmation_required: bool = False
+    metadata: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedContent:
+    """Normalized in-memory content available to future persistence work."""
+
+    content_type: CapturedContentType
+    content: str
+    interaction_id: str
     metadata: dict[str, str] = field(default_factory=dict)

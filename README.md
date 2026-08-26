@@ -71,7 +71,9 @@ Supported commands:
 - `exit`
 - `quit`
 
-This simulator currently reuses the implemented `Foresight Lab v0.1` interaction and session architecture. It does not provide speech recognition, audio output, hardware integration, or replay.
+This simulator currently includes the implemented `Foresight Lab v0.3` deterministic wake, interaction-context, and session flows. Type `Hey Foresight` to receive the simulated `[BEEP]` acknowledgement, then try an adventure command, `Take a note`, or `Add something to my shopping list`.
+
+Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide speech recognition, audio output, hardware integration, AI interpretation, or replay.
 
 ## Documentation
 

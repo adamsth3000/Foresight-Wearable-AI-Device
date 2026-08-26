@@ -1,10 +1,9 @@
-from io import StringIO
-
 from foresight_device.cli import (
     build_text_interaction,
     handle_command,
     render_assistant_response,
     render_session_status,
+    render_status,
 )
 from foresight_device.interaction import AssistantResponse, InteractionService, InteractionSource
 
@@ -62,3 +61,22 @@ def test_assistant_response_rendering_omits_optional_planned_cue() -> None:
     lines = render_assistant_response(response)
 
     assert lines == ("Foresight: Would you like me to record this event?",)
+
+
+def test_wake_response_renders_simulated_beep_and_listening_message() -> None:
+    response = AssistantResponse(
+        message="Listening...",
+        metadata={"simulated_acknowledgement_cue": "BEEP"},
+    )
+
+    assert render_assistant_response(response) == ("[BEEP]", "Foresight: Listening...")
+
+
+def test_status_includes_assistant_state_and_pending_context() -> None:
+    service = InteractionService()
+    handle_command("Hey Foresight", service)
+
+    lines = render_status(service)
+
+    assert "Assistant State: listening_for_command" in lines
+    assert "Pending Context: none" in lines
