@@ -22,6 +22,10 @@ dev = [
   "pytest-cov>=5.0.0",
   "ruff>=0.6.0",
 ]
+voice = [
+  "faster-whisper>=1.2.1",
+  "sounddevice>=0.5.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/foresight_device"]

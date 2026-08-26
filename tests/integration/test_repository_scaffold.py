@@ -17,6 +17,7 @@ def test_expected_scaffold_files_exist() -> None:
         repo_root / "src" / "foresight_device" / "__main__.py",
         repo_root / "src" / "foresight_device" / "interaction" / "service.py",
         repo_root / "src" / "foresight_device" / "sessions" / "service.py",
+        repo_root / "src" / "foresight_device" / "voice" / "input.py",
     ]
 
     for path in expected_paths:

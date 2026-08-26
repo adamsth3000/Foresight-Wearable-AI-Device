@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Purpose
-This repository contains the long-term project foundation for Foresight, a wearable AI assistant platform. The repository currently holds development scaffolding, architecture documentation, project-state tracking, and shared Python infrastructure.
+This repository contains the long-term project foundation for Foresight, a wearable AI assistant platform. It currently holds development scaffolding, architecture documentation, shared Python infrastructure, and small Foresight Lab interaction milestones.
 
 ## Durable Project Vision
 Foresight is intended to evolve in phases while preserving a stable core architecture.
@@ -51,10 +51,12 @@ Foresight is intended to evolve in phases while preserving a stable core archite
 - Repository structure and contributor workflow foundations exist.
 - Python tooling, configuration, logging, and tests exist at a scaffold level.
 - Architecture, roadmap, and project-state documentation exist.
-- Product functionality is not implemented yet.
+- Lab v0.1-v0.3 provide normalized interaction/session flows, a terminal simulator, deterministic wake handling, and transient captures.
+- Lab v0.4 provides an optional, replaceable microphone-to-transcript adapter that feeds the same interaction core.
 
 ## Current Phase Constraints
-- Do not implement AI, computer vision, voice recognition, gesture recognition, GPS integration, GoPro integration, hardware integration, or AR functionality yet.
+- Keep voice input limited to the optional command-triggered Lab adapter; do not move interaction logic into it.
+- Do not implement AI, computer vision, audio output, continuous listening, production wake-word detection, gesture recognition, GPS integration, GoPro integration, hardware integration, or AR functionality yet.
 - Do not represent planned architecture as completed functionality.
 - Do not create duplicate root-level code directories outside `src/foresight_device`.
 - Do not create empty future implementation packages unless a current milestone requires them.

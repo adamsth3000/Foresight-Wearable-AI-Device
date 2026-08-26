@@ -53,3 +53,11 @@
 ### Retain Simple Captures In Memory Only
 - Decision: Normalize note and shopping-item follow-up content as transient in-memory captures.
 - Rationale: This preserves a structured path for future persistence without prematurely adding a database, file storage, or repository layer.
+
+### Keep Voice Input As An Optional Replaceable Adapter
+- Decision: Add the Lab microphone path as an optional `VoiceInputAdapter` that returns one transcript at a time.
+- Rationale: The existing interaction core receives a normalized `VOICE` and `MICROPHONE` interaction while microphone and speech-to-text details remain replaceable.
+
+### Use Command-Triggered Single-Utterance Capture
+- Decision: The terminal `voice` command triggers one fixed-duration microphone capture using the optional Lab adapter.
+- Rationale: This permits real voice-input experiments without prematurely introducing continuous listening, ambient monitoring, or production wake-word detection.

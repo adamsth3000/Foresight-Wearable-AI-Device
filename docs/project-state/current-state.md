@@ -2,8 +2,8 @@
 
 ## Snapshot
 - Date: August 25, 2026
-- Phase: Foresight Lab v0.3
-- Status: Wake, interaction-context, and command-simulator milestone implemented
+- Phase: Foresight Lab v0.4
+- Status: Optional voice-input adapter milestone implemented
 
 ## What Exists
 - Repository license and Git metadata
@@ -19,10 +19,11 @@
 - A small interpreter boundary with deterministic example phrase mappings for constrained intents
 - In-memory multi-step note and shopping-item capture with no persistence
 - Manual status inspection for current session, assistant state, and pending interaction context
+- An optional microphone-to-transcript adapter that feeds `VOICE` and `MICROPHONE` interactions into the existing core
 
 ## What Does Not Exist Yet
 - Computer vision pipelines
-- Speech recognition or microphone input
+- Spoken assistant responses, actual audio playback, continuous listening, or production wake-word detection
 - Simulated or real gesture recognition
 - GPS or GoPro integrations
 - Hardware control, wearable integrations, or AR functionality
@@ -30,7 +31,7 @@
 - AI models, NLP, perception, contextual intelligence, or hardware adapters
 
 ## Current Truth
-The repository now includes small implemented interaction, session, and CLI modules under `src/foresight_device`, but the broader Foresight architecture remains mostly planned. The current implementation is limited to normalized simulated inputs, deterministic wake handling, constrained intent interpretation, multi-step interaction context, an adventure-session confirmation flow, transient structured captures, and a terminal-based manual command loop.
+The repository now includes small implemented interaction, session, CLI, and optional voice-adapter modules under `src/foresight_device`, but the broader Foresight architecture remains mostly planned. The current implementation is limited to normalized text and microphone transcripts, deterministic wake handling, constrained intent interpretation, multi-step interaction context, an adventure-session confirmation flow, transient structured captures, and a terminal-based manual command loop.
 
 ## Next Transition
-Choose the next small, testable Lab milestone without introducing real hardware, media, persistence, or field integrations.
+Choose the next small, testable Lab milestone without introducing continuous capture, persistence, field integrations, or new hardware-specific core behavior.

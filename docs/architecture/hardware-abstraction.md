@@ -1,7 +1,7 @@
 # Hardware Abstraction
 
 ## Current Implemented State
-No hardware abstraction layer is implemented yet. This document defines the intended architectural direction only.
+The optional Lab voice adapter is a narrow microphone-to-transcript integration. It is replaceable and does not expose microphone details to the interaction core. No phone, GoPro, GPS, wearable, speaker, or embedded-device integration is implemented.
 
 ## Architectural Goal
 Foresight intelligence should survive hardware transitions without requiring the core reasoning model to be redesigned.
@@ -26,4 +26,4 @@ Foresight intelligence should survive hardware transitions without requiring the
 - Possible EMG-based input is a future aid for identifying the user's deliberate gestures, not a current implementation detail.
 
 ## Not Implemented Yet
-The repository does not yet include GoPro, phone, GPS, IMU, microphone, speaker, or embedded-device integration code.
+The repository does not yet include GoPro, phone, GPS, IMU, speaker, wearable, or embedded-device integration code. The Lab microphone adapter does not provide continuous capture, production wake-word detection, or audio playback.

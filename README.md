@@ -8,7 +8,7 @@ This repository is currently an early development foundation for the long-term F
 The following are intentionally not implemented yet:
 - AI functionality
 - Computer vision
-- Voice recognition
+- Spoken assistant responses or actual audio playback
 - Gesture recognition
 - GPS or GoPro integration
 - Hardware or AR integrations
@@ -71,9 +71,19 @@ Supported commands:
 - `exit`
 - `quit`
 
-This simulator currently includes the implemented `Foresight Lab v0.3` deterministic wake, interaction-context, and session flows. Type `Hey Foresight` to receive the simulated `[BEEP]` acknowledgement, then try an adventure command, `Take a note`, or `Add something to my shopping list`.
+This simulator currently includes `Foresight Lab v0.4`: deterministic wake, interaction-context, session flows, and an optional microphone-to-transcript adapter. Type `Hey Foresight` to receive the simulated `[BEEP]` acknowledgement, then try an adventure command, `Take a note`, or `Add something to my shopping list`.
 
-Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide speech recognition, audio output, hardware integration, AI interpretation, or replay.
+To use optional Lab voice input, install it in a compatible environment. Python 3.11 is the recommended initial voice runtime because the current Python 3.14 environment may not support all native speech-to-text dependencies reliably:
+
+`py -3.11 -m venv .venv-voice`
+
+`.venv-voice\Scripts\Activate.ps1`
+
+`python -m pip install -e ".[dev,voice]"`
+
+Start the Lab with `python -m foresight_device`, then type `voice` to capture one fixed-duration utterance. The first use may provision the local `base.en` model. The `voice` command is a Lab development control, not part of Foresight's interaction vocabulary.
+
+Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide spoken responses, actual audio playback, continuous listening, hardware integration, AI interpretation, or replay.
 
 ## Documentation
 

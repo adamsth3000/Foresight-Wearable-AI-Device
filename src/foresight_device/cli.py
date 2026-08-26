@@ -14,6 +14,7 @@ from foresight_device.interaction import (
 )
 from foresight_device.sessions import SessionRecord
 from foresight_device.sessions.service import SessionStateError
+from foresight_device.voice import VoiceInputAdapter, VoiceInputUnavailableError
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,16 @@ def build_text_interaction(content: str) -> UserInteraction:
         content=content,
         modality=InteractionModality.TEXT,
         source=InteractionSource.SIMULATED,
+    )
+
+
+def build_voice_interaction(transcript: str) -> UserInteraction:
+    """Convert a microphone transcript into the normalized interaction model."""
+
+    return UserInteraction(
+        content=transcript,
+        modality=InteractionModality.VOICE,
+        source=InteractionSource.MICROPHONE,
     )
 
 
@@ -70,7 +81,11 @@ def render_status(service: InteractionService) -> tuple[str, ...]:
     )
 
 
-def handle_command(command: str, service: InteractionService) -> CommandResult:
+def handle_command(
+    command: str,
+    service: InteractionService,
+    voice_input: VoiceInputAdapter | None = None,
+) -> CommandResult:
     """Handle a single terminal command."""
 
     normalized = command.strip()
@@ -82,10 +97,43 @@ def handle_command(command: str, service: InteractionService) -> CommandResult:
     if lowered == "status":
         return CommandResult(lines=render_status(service))
 
+    if lowered == "voice":
+        return _handle_voice_command(service, voice_input)
+
     if not normalized:
         return CommandResult()
 
-    interaction = build_text_interaction(normalized)
+    return _process_interaction(build_text_interaction(normalized), service)
+
+
+def _handle_voice_command(
+    service: InteractionService,
+    voice_input: VoiceInputAdapter | None,
+) -> CommandResult:
+    """Capture one Lab-only voice utterance and send its transcript to the core."""
+
+    if voice_input is None:
+        return CommandResult(
+            lines=("Voice input unavailable: install the project's optional voice dependencies.",)
+        )
+
+    try:
+        transcript = voice_input.listen_once()
+    except VoiceInputUnavailableError as exc:
+        return CommandResult(lines=(f"Voice input unavailable: {exc}",))
+
+    if transcript is None or not transcript.strip():
+        return CommandResult(lines=("No usable speech detected.",))
+
+    return _process_interaction(build_voice_interaction(transcript), service)
+
+
+def _process_interaction(
+    interaction: UserInteraction,
+    service: InteractionService,
+) -> CommandResult:
+    """Run a normalized interaction through the established core flow."""
+
     try:
         outcome = service.process(interaction)
     except SessionStateError as exc:
@@ -101,12 +149,13 @@ def run_cli(
     input_stream: TextIO,
     output_stream: TextIO,
     service: InteractionService | None = None,
+    voice_input: VoiceInputAdapter | None = None,
 ) -> int:
     """Run the minimal interactive Foresight terminal loop."""
 
     interaction_service = service or InteractionService()
-    output_stream.write("Foresight Lab v0.3\n")
-    output_stream.write("Type a message, 'status', or 'exit'.\n")
+    output_stream.write("Foresight Lab v0.4\n")
+    output_stream.write("Type a message, 'voice', 'status', or 'exit'.\n")
 
     while True:
         output_stream.write("> ")
@@ -124,7 +173,11 @@ def run_cli(
             output_stream.flush()
             return 0
 
-        result = handle_command(raw_command, interaction_service)
+        if raw_command.strip().lower() == "voice" and voice_input is not None:
+            output_stream.write("Listening for one utterance...\n")
+            output_stream.flush()
+
+        result = handle_command(raw_command, interaction_service, voice_input)
         for line in result.lines:
             output_stream.write(f"{line}\n")
         output_stream.flush()

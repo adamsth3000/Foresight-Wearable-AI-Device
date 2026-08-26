@@ -1,7 +1,7 @@
 # Subsystem Boundaries
 
 ## Current Implemented State
-The repository does not yet contain implementation packages for the future subsystems below. This document defines conceptual boundaries only.
+The repository contains small `interaction`, `sessions`, and optional `voice` packages. The `voice` package is a Lab adapter that returns text transcripts; wake handling, intent interpretation, context, and sessions remain in `interaction` and `sessions`.
 
 ## Planned Logical Subsystems
 
@@ -12,13 +12,13 @@ Shared configuration, logging, environment resolution, and repository-level runt
 Future support for live capture, structured session recording, and replay-friendly data handling across Lab and Field workflows.
 
 ### Interaction
-Future support for user-facing interactions such as audio-driven interaction, developer visualization, and other interface layers.
+Implemented normalized interaction, wake, intent, and pending-context behavior. Future work may add richer audio-driven interaction, developer visualization, and other interface layers.
 
 ### Intelligence
 Future support for perception, intent recognition, context handling, memory, world modeling, geospatial awareness, and agent or action logic.
 
 ### Device Adapters
-Future support for concrete device integrations such as development-platform sensors or later wearable hardware.
+The optional microphone adapter is the first narrow Lab example. Future support may add development-platform sensors or later wearable hardware.
 
 ### Display And Visualization Adapters
 Future support for optional visual outputs, debugging views, dashboards, or eventual wearable display integrations.
@@ -27,5 +27,6 @@ Future support for optional visual outputs, debugging views, dashboards, or even
 - Core intelligence should not depend directly on a specific camera, phone, GoPro, or wearable device.
 - Core intelligence should not require a display implementation to function.
 - Device-specific integrations should translate external inputs into stable internal representations.
+- Voice adapters must transcribe one utterance without making wake, intent, context, or session decisions.
 - Display-specific integrations should consume stable internal state rather than drive core decision-making.
 - Capture and replay workflows should be designed so both live and post-processed sessions can feed the same higher-level systems over time.

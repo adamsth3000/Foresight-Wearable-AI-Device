@@ -1,11 +1,31 @@
 from foresight_device.cli import (
     build_text_interaction,
+    build_voice_interaction,
     handle_command,
     render_assistant_response,
     render_session_status,
     render_status,
 )
-from foresight_device.interaction import AssistantResponse, InteractionService, InteractionSource
+from foresight_device.interaction import (
+    AssistantResponse,
+    InteractionModality,
+    InteractionService,
+    InteractionSource,
+)
+from foresight_device.voice import VoiceInputUnavailableError
+
+
+class FakeVoiceInput:
+    def __init__(self, transcript: str | None) -> None:
+        self._transcript = transcript
+
+    def listen_once(self) -> str | None:
+        return self._transcript
+
+
+class UnavailableVoiceInput:
+    def listen_once(self) -> str | None:
+        raise VoiceInputUnavailableError("Microphone is unavailable.")
 
 
 def test_build_text_interaction_uses_text_and_simulated_source() -> None:
@@ -14,6 +34,14 @@ def test_build_text_interaction_uses_text_and_simulated_source() -> None:
     assert interaction.content == "Hello, Foresight"
     assert interaction.modality.value == "text"
     assert interaction.source is InteractionSource.SIMULATED
+
+
+def test_build_voice_interaction_uses_voice_and_microphone_source() -> None:
+    interaction = build_voice_interaction("Hey Foresight")
+
+    assert interaction.content == "Hey Foresight"
+    assert interaction.modality is InteractionModality.VOICE
+    assert interaction.source is InteractionSource.MICROPHONE
 
 
 def test_status_with_no_session_is_compact() -> None:
@@ -80,3 +108,21 @@ def test_status_includes_assistant_state_and_pending_context() -> None:
 
     assert "Assistant State: listening_for_command" in lines
     assert "Pending Context: none" in lines
+
+
+def test_voice_transcript_reaches_existing_wake_handling() -> None:
+    result = handle_command("voice", InteractionService(), FakeVoiceInput("Hey Foresight"))
+
+    assert result.lines == ("[BEEP]", "Foresight: Listening...")
+
+
+def test_voice_command_handles_empty_transcript() -> None:
+    result = handle_command("voice", InteractionService(), FakeVoiceInput("   "))
+
+    assert result.lines == ("No usable speech detected.",)
+
+
+def test_voice_command_handles_unavailable_adapter() -> None:
+    result = handle_command("voice", InteractionService(), UnavailableVoiceInput())
+
+    assert result.lines == ("Voice input unavailable: Microphone is unavailable.",)

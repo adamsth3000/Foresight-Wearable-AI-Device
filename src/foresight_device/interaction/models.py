@@ -1,4 +1,4 @@
-"""Normalized interaction models for simulated Foresight inputs."""
+"""Normalized interaction models for Foresight inputs."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ class InteractionSource(StrEnum):
     """Origin of a normalized interaction."""
 
     SIMULATED = "simulated"
+    MICROPHONE = "microphone"
 
 
 class CapturedContentType(StrEnum):
