@@ -14,6 +14,12 @@ from foresight_device.interaction import (
     PendingInteractionContext,
     UserInteraction,
 )
+from foresight_device.output import (
+    AudioCue,
+    AudioCueOutput,
+    AudioOutputUnavailableError,
+    SpeechOutput,
+)
 from foresight_device.sessions import SessionRecord
 from foresight_device.sessions.service import SessionStateError
 from foresight_device.voice import VoiceInputAdapter, VoiceInputUnavailableError
@@ -95,6 +101,8 @@ def handle_command(
     command: str,
     service: InteractionService,
     voice_input: VoiceInputAdapter | None = None,
+    cue_output: AudioCueOutput | None = None,
+    speech_output: SpeechOutput | None = None,
 ) -> CommandResult:
     """Handle a single terminal command."""
 
@@ -108,17 +116,24 @@ def handle_command(
         return CommandResult(lines=render_status(service))
 
     if lowered == "voice":
-        return _handle_voice_command(service, voice_input)
+        return _handle_voice_command(service, voice_input, cue_output, speech_output)
 
     if not normalized:
         return CommandResult()
 
-    return _process_interaction(build_text_interaction(normalized), service)
+    return _process_interaction(
+        build_text_interaction(normalized),
+        service,
+        cue_output,
+        speech_output,
+    )
 
 
 def _handle_voice_command(
     service: InteractionService,
     voice_input: VoiceInputAdapter | None,
+    cue_output: AudioCueOutput | None,
+    speech_output: SpeechOutput | None,
 ) -> CommandResult:
     """Capture one Lab-only voice utterance and send its transcript to the core."""
 
@@ -137,13 +152,20 @@ def _handle_voice_command(
             lines=(render_transcript(transcript), "Foresight: No usable speech detected.")
         )
 
-    result = _process_interaction(build_voice_interaction(transcript), service)
+    result = _process_interaction(
+        build_voice_interaction(transcript),
+        service,
+        cue_output,
+        speech_output,
+    )
     return CommandResult(lines=(render_transcript(transcript),) + result.lines)
 
 
 def _process_interaction(
     interaction: UserInteraction,
     service: InteractionService,
+    cue_output: AudioCueOutput | None = None,
+    speech_output: SpeechOutput | None = None,
 ) -> CommandResult:
     """Run a normalized interaction through the established core flow."""
 
@@ -155,17 +177,49 @@ def _process_interaction(
     if outcome.assistant_response is None:
         return CommandResult(lines=("Foresight: No response available.",))
 
-    return CommandResult(lines=render_assistant_response(outcome.assistant_response))
+    response = outcome.assistant_response
+    return CommandResult(
+        lines=render_assistant_response(response)
+        + _dispatch_audio_output(response, cue_output, speech_output)
+    )
+
+
+def _dispatch_audio_output(
+    response: AssistantResponse,
+    cue_output: AudioCueOutput | None,
+    speech_output: SpeechOutput | None,
+) -> tuple[str, ...]:
+    """Dispatch optional output adapters without interrupting terminal behavior."""
+
+    diagnostics: list[str] = []
+    if (
+        cue_output is not None
+        and response.metadata.get("simulated_acknowledgement_cue") == "BEEP"
+    ):
+        try:
+            cue_output.play_cue(AudioCue.WAKE_ACKNOWLEDGEMENT)
+        except AudioOutputUnavailableError as exc:
+            diagnostics.append(f"Audio output unavailable: {exc}")
+
+    if speech_output is not None:
+        try:
+            speech_output.speak(response.message)
+        except AudioOutputUnavailableError as exc:
+            diagnostics.append(f"Speech output unavailable: {exc}")
+
+    return tuple(diagnostics)
 
 
 def _run_bounded_voice_flow(
     output_stream: TextIO,
     service: InteractionService,
     voice_input: VoiceInputAdapter,
+    cue_output: AudioCueOutput | None,
+    speech_output: SpeechOutput | None,
 ) -> None:
     """Run one wake, command, and optional pending-context voice sequence."""
 
-    _render_voice_capture(output_stream, service, voice_input)
+    _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
 
     if not (
         service.assistant_state is AssistantState.LISTENING_FOR_COMMAND
@@ -173,22 +227,24 @@ def _run_bounded_voice_flow(
     ):
         return
 
-    _render_voice_capture(output_stream, service, voice_input)
+    _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
 
     if service.pending_context is not PendingInteractionContext.NONE:
-        _render_voice_capture(output_stream, service, voice_input)
+        _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
 
 
 def _render_voice_capture(
     output_stream: TextIO,
     service: InteractionService,
     voice_input: VoiceInputAdapter,
+    cue_output: AudioCueOutput | None,
+    speech_output: SpeechOutput | None,
 ) -> None:
     """Render one explicit microphone capture without keeping it open."""
 
     output_stream.write("Listening for one utterance...\n")
     output_stream.flush()
-    result = handle_command("voice", service, voice_input)
+    result = handle_command("voice", service, voice_input, cue_output, speech_output)
     for line in result.lines:
         output_stream.write(f"{line}\n")
     output_stream.flush()
@@ -199,6 +255,8 @@ def run_cli(
     output_stream: TextIO,
     service: InteractionService | None = None,
     voice_input: VoiceInputAdapter | None = None,
+    cue_output: AudioCueOutput | None = None,
+    speech_output: SpeechOutput | None = None,
 ) -> int:
     """Run the minimal interactive Foresight terminal loop."""
 
@@ -223,10 +281,22 @@ def run_cli(
             return 0
 
         if raw_command.strip().lower() == "voice" and voice_input is not None:
-            _run_bounded_voice_flow(output_stream, interaction_service, voice_input)
+            _run_bounded_voice_flow(
+                output_stream,
+                interaction_service,
+                voice_input,
+                cue_output,
+                speech_output,
+            )
             continue
 
-        result = handle_command(raw_command, interaction_service, voice_input)
+        result = handle_command(
+            raw_command,
+            interaction_service,
+            voice_input,
+            cue_output,
+            speech_output,
+        )
         for line in result.lines:
             output_stream.write(f"{line}\n")
         output_stream.flush()

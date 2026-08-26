@@ -79,11 +79,13 @@ To use optional Lab voice input, install it in a compatible environment. Python 
 
 `.venv-voice\Scripts\Activate.ps1`
 
-`python -m pip install -e ".[dev,voice]"`
+`python -m pip install -e ".[dev,voice,audio]"`
 
 Start the Lab with `python -m foresight_device`, then type `voice` to capture one fixed-duration utterance. The first use may provision the local `base.en` model. The `voice` command is a Lab development control, not part of Foresight's interaction vocabulary.
 
-Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide spoken responses, actual audio playback, continuous listening, hardware integration, AI interpretation, or replay.
+The Lab now plays a local Windows wake tone in addition to the terminal `[BEEP]` marker. Optional TTS uses `pyttsx3` only when `FORESIGHT_LAB_SPEAK_RESPONSES=1` is set before starting the Lab. If TTS is unavailable, terminal output and the wake cue continue where supported.
+
+Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide continuous listening, production wake-word detection, streaming audio, phone or wearable audio integration, AI interpretation, or replay.
 
 ## Documentation
 

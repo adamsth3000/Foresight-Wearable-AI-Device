@@ -26,6 +26,9 @@ voice = [
   "faster-whisper>=1.2.1",
   "sounddevice>=0.5.1",
 ]
+audio = [
+  "pyttsx3>=2.99",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/foresight_device"]

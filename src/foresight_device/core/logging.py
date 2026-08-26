@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 import logging
 import logging.config
+from copy import deepcopy
 from pathlib import Path
 
 from .config import Settings, get_settings
-
 
 DEFAULT_LOGGING_CONFIG: dict[str, object] = {
     "version": 1,

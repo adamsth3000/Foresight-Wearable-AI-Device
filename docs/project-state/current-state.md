@@ -2,8 +2,8 @@
 
 ## Snapshot
 - Date: August 25, 2026
-- Phase: Foresight Lab v0.4
-- Status: Optional voice-input adapter milestone implemented
+- Phase: Foresight Lab v0.5
+- Status: Optional audio-output adapter milestone implemented
 
 ## What Exists
 - Repository license and Git metadata
@@ -20,10 +20,12 @@
 - In-memory multi-step note and shopping-item capture with no persistence
 - Manual status inspection for current session, assistant state, and pending interaction context
 - An optional microphone-to-transcript adapter that feeds `VOICE` and `MICROPHONE` interactions into the existing core
+- A bounded voice flow that captures wake, command, and one pending-context reply before returning to the CLI
+- Replaceable output contracts for a Windows wake cue and optional local text-to-speech
 
 ## What Does Not Exist Yet
 - Computer vision pipelines
-- Spoken assistant responses, actual audio playback, continuous listening, or production wake-word detection
+- Continuous listening, production wake-word detection, streaming/background audio, or production audio routing
 - Simulated or real gesture recognition
 - GPS or GoPro integrations
 - Hardware control, wearable integrations, or AR functionality
@@ -31,7 +33,7 @@
 - AI models, NLP, perception, contextual intelligence, or hardware adapters
 
 ## Current Truth
-The repository now includes small implemented interaction, session, CLI, and optional voice-adapter modules under `src/foresight_device`, but the broader Foresight architecture remains mostly planned. The current implementation is limited to normalized text and microphone transcripts, deterministic wake handling, constrained intent interpretation, multi-step interaction context, an adventure-session confirmation flow, transient structured captures, and a terminal-based manual command loop.
+The repository now includes small implemented interaction, session, CLI, optional voice-adapter, and optional output-adapter modules under `src/foresight_device`, but the broader Foresight architecture remains mostly planned. The current implementation is limited to normalized text and microphone transcripts, deterministic wake handling, constrained intent interpretation, multi-step interaction context, an adventure-session confirmation flow, transient structured captures, terminal output, and a Windows Lab wake cue with optional local TTS.
 
 ## Next Transition
-Choose the next small, testable Lab milestone without introducing continuous capture, persistence, field integrations, or new hardware-specific core behavior.
+Choose the next small, testable Lab milestone without introducing continuous capture, streaming audio, persistence, field integrations, or new hardware-specific core behavior.

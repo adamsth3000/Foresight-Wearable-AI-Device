@@ -53,10 +53,12 @@ Foresight is intended to evolve in phases while preserving a stable core archite
 - Architecture, roadmap, and project-state documentation exist.
 - Lab v0.1-v0.3 provide normalized interaction/session flows, a terminal simulator, deterministic wake handling, and transient captures.
 - Lab v0.4 provides an optional, replaceable microphone-to-transcript adapter that feeds the same interaction core.
+- Lab v0.5 provides replaceable cue and speech-output adapters dispatched by the CLI after core responses.
 
 ## Current Phase Constraints
 - Keep voice input limited to the optional command-triggered Lab adapter; do not move interaction logic into it.
-- Do not implement AI, computer vision, audio output, continuous listening, production wake-word detection, gesture recognition, GPS integration, GoPro integration, hardware integration, or AR functionality yet.
+- Keep output limited to the optional Lab cue and speech adapters; do not move output APIs into the interaction core.
+- Do not implement AI, computer vision, continuous listening, production wake-word detection, gesture recognition, GPS integration, GoPro integration, production hardware integration, or AR functionality yet.
 - Do not represent planned architecture as completed functionality.
 - Do not create duplicate root-level code directories outside `src/foresight_device`.
 - Do not create empty future implementation packages unless a current milestone requires them.

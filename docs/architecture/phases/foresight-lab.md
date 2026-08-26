@@ -47,7 +47,10 @@ The repository now includes small implemented Lab milestones:
 - explicit pending interaction context for adventure confirmation, note content, and shopping-item content
 - simulated note and shopping flows that retain normalized captured content in memory for a future persistence consumer
 - an optional command-triggered microphone-to-transcript adapter that creates normalized `VOICE` interactions with a `MICROPHONE` source
+- a Windows Lab wake cue and optional local text-to-speech behind replaceable output contracts
 
 The microphone adapter does not own wake handling, intent interpretation, pending context, or session logic. The typed `voice` command is a Lab development control that triggers one fixed-duration capture; its transcript is processed by the existing interaction system. The wake phrase is intentionally separate from ordinary intent interpretation. The current phrase rules are demonstrations for Lab testing, not a permanent language model or an exhaustive command vocabulary. The architecture leaves room for future priority handling, but no emergency path is implemented.
 
-This implemented scope is still intentionally limited. It does not include spoken assistant responses, actual audio playback, continuous listening, production wake-word detection, gesture recognition, media ingestion, GPS integration, replay, persistence, AI or NLP systems, or hardware adapters beyond the optional Lab microphone input.
+The output layer is dispatched by the CLI after normal assistant responses. Terminal text remains authoritative, and interaction/session code does not know about Windows audio or TTS APIs.
+
+This implemented scope is still intentionally limited. It does not include continuous listening, production wake-word detection, streaming or background audio, phone/wearable/Bluetooth/bone-conduction output, haptics, gesture recognition, media ingestion, GPS integration, replay, persistence, AI or NLP systems, or hardware adapters beyond the optional Lab microphone and output adapters.

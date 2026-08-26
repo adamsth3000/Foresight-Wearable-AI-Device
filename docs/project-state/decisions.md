@@ -61,3 +61,11 @@
 ### Use Command-Triggered Single-Utterance Capture
 - Decision: The terminal `voice` command triggers one fixed-duration microphone capture using the optional Lab adapter.
 - Rationale: This permits real voice-input experiments without prematurely introducing continuous listening, ambient monitoring, or production wake-word detection.
+
+### Keep Audio Output As Replaceable Adapters
+- Decision: Define separate cue and speech-output contracts, dispatched by the CLI after a normal assistant response.
+- Rationale: This allows the core to remain independent from Windows audio and keeps future speaker or haptic integrations replaceable.
+
+### Use Windows Cues And Optional Local TTS For The Lab
+- Decision: Use `winsound` for the synchronous wake cue and optional lazy `pyttsx3` SAPI5 speech output.
+- Rationale: The cue has no extra dependency, while TTS remains optional and cannot prevent text-mode operation when unavailable.

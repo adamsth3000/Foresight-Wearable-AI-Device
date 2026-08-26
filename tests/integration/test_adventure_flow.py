@@ -1,4 +1,9 @@
-from foresight_device.interaction import InteractionModality, InteractionService, IntentType, UserInteraction
+from foresight_device.interaction import (
+    IntentType,
+    InteractionModality,
+    InteractionService,
+    UserInteraction,
+)
 from foresight_device.sessions import SessionStatus
 
 

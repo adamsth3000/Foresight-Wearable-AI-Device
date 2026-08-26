@@ -21,6 +21,7 @@ At the moment, this repository supports that future work through documentation, 
 - `src/foresight_device/interaction/`: normalized interactions, deterministic Lab state, and intent interpretation boundaries.
 - `src/foresight_device/sessions/`: minimal adventure session lifecycle.
 - `src/foresight_device/voice/`: optional microphone-to-transcript adapters; it must not own interaction or session logic.
+- `src/foresight_device/output/`: optional cue and speech adapters dispatched by the CLI after core responses.
 - `config/`: repository-managed default configuration assets.
 - `tests/`: unit and integration test suites for scaffold behavior.
 - `docs/`: architecture, contributor guidance, and project-state records.
@@ -51,6 +52,7 @@ At the moment, this repository supports that future work through documentation, 
 - Define durable architecture and repository guidance.
 - Provide a small hardware-independent interaction and session core.
 - Keep optional input adapters outside that core.
+- Keep optional output adapters outside that core.
 - Preserve the canonical Python package location.
 
 ## Deferred Implementation Work
@@ -61,4 +63,4 @@ The following are planned but not implemented in the current milestone:
 - Context, memory, geospatial, and world-model systems
 - Hardware adapters
 - Display and visualization adapters
-- Spoken assistant responses, actual audio cues, and continuous voice monitoring
+- Continuous voice monitoring, streaming audio, and production audio routing
