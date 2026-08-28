@@ -1,0 +1,16 @@
+# Phase 1B local-development defaults. The Python MVP accepts equivalent CLI options;
+# no YAML runtime dependency is introduced at this milestone.
+source:
+  source_id: foresight-phone
+  transport: rtsp
+  uri: rtsp://LAPTOP_LAN_IP:8555/foresight-phone
+  video_source: phone_rear_camera
+  audio_source: phone_microphone
+buffer:
+  retention_seconds: 60
+  segment_seconds: 2
+events:
+  pre_seconds: 30
+  post_seconds: 15
+ffmpeg:
+  executable: ffmpeg

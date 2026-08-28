@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import TextIO
+from uuid import uuid4
 
-from foresight_device.interaction import (
+from foresight_device.capture import (
+    ConfiguredMediaSource,
+    EventService,
+    FfmpegRtspIngress,
+    MediaSegment,
+    MediaSourceDescriptor,
+    RollingBuffer,
+)
+from foresight_device.capture.ffmpeg_ingress import FfmpegIngressErrorfrom foresight_device.interaction import (
     AssistantResponse,
     AssistantState,
     InteractionModality,
@@ -303,3 +315,107 @@ def run_cli(
 
         if result.should_exit:
             return 0
+
+def run_capture_cli(
+    input_stream: TextIO,
+    output_stream: TextIO,
+    *,
+    source_uri: str,
+    ffmpeg_executable: str,
+    data_root: Path,
+    retention_seconds: float = 60.0,
+    segment_seconds: float = 2.0,
+    pre_seconds: float = 30.0,
+    post_seconds: float = 15.0,
+) -> int:
+    """Run the small manual Phase 1B capture control loop."""
+
+    started_at = datetime.now(UTC)
+    source = ConfiguredMediaSource(
+        MediaSourceDescriptor(
+            source_id="foresight-phone",
+            capture_session_id=str(uuid4()),
+            transport="rtsp",
+            uri=source_uri,
+            video_source="phone_rear_camera",
+            audio_source="phone_microphone",
+            session_started_utc=started_at,
+            session_started_monotonic_ns=time.monotonic_ns(),
+            metadata={"source_type": "rtsp"},
+        )
+    )
+    rolling_buffer = RollingBuffer(retention_seconds)
+    event_service: EventService
+
+    def on_segment(segment: MediaSegment) -> None:
+        rolling_buffer.add(segment, now=segment.ended_at_utc)
+        for event in event_service.observe_segment(segment):
+            output_stream.write(f"Event promoted: {event.event_id}\n")
+            output_stream.write(f"Media: {event.media_path}\n")
+            output_stream.flush()
+
+    ingress = FfmpegRtspIngress(
+        source,
+        data_root / "buffer" / source.descriptor.capture_session_id,
+        on_segment,
+        executable=ffmpeg_executable,
+        segment_seconds=segment_seconds,
+    )
+    event_service = EventService(
+        source,
+        rolling_buffer,
+        data_root / "events",
+        ingress.concatenate_to_mp4,
+        pre_seconds=pre_seconds,
+        post_seconds=post_seconds,
+    )
+
+    try:
+        ingress.start()
+    except FfmpegIngressError as exc:
+        output_stream.write(f"Capture unavailable: {exc}\n")
+        output_stream.flush()
+        return 1
+
+    output_stream.write("Foresight Phase 1B capture started. Type 'event', 'status', or 'stop'.\n")
+    output_stream.flush()
+    try:
+        while True:
+            output_stream.write("capture> ")
+            output_stream.flush()
+            try:
+                command = input_stream.readline()
+            except KeyboardInterrupt:
+                output_stream.write("\n")
+                break
+            if command == "":
+                break
+            normalized = command.strip().lower()
+            if normalized == "event":
+                event_id = event_service.trigger()
+                output_stream.write(f"Manual event pending: {event_id}\n")
+            elif normalized == "status":
+                failure = ingress.failure_message
+                output_stream.write(
+                    f"Segments: {len(rolling_buffer.segments)}; "
+                    f"pending events: {event_service.pending_count}; "
+                    f"ingress running: {ingress.is_running}.\n"
+                )
+                if failure is not None:
+                    output_stream.write(f"{failure}\n")
+            elif normalized in {"stop", "exit", "quit"}:
+                break
+            elif normalized:
+                output_stream.write("Use 'event', 'status', or 'stop'.\n")
+            output_stream.flush()
+    finally:
+        ingress.stop()
+        aborted = event_service.abort_pending()
+        if aborted:
+            output_stream.write(f"Discarded {aborted} incomplete pending event(s).\n")
+        cleanup_error = ingress.cleanup_temporary_media()
+        if cleanup_error is not None:
+            output_stream.write(f"{cleanup_error}\n")
+        output_stream.write("Capture stopped.\n")
+        output_stream.flush()
+    return 0

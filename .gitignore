@@ -179,3 +179,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Android Studio and Gradle build outputs
+.gradle/
+platforms/android/**/build/
+platforms/android/**/.idea/
+platforms/android/**/local.properties
+
+# Local Phase 1B rolling media and promoted event artifacts
+data/capture/

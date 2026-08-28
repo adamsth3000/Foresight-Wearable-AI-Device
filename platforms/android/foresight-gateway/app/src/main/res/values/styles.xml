@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.ForesightGateway" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#1D6F5C</item>
+    </style>
+</resources>
