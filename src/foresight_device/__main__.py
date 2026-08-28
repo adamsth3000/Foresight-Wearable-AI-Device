@@ -18,7 +18,7 @@ def main() -> int:
 
     if "--capture" in sys.argv[1:]:
         configure_logging()
-        parser = argparse.ArgumentParser(description="Run the Phase 1B local capture loop.")
+        parser = argparse.ArgumentParser(description="Run the Phase 1C local capture loop.")
         parser.add_argument("--capture", action="store_true")
         parser.add_argument("--source-uri", required=True, help="Live source URI, such as rtsp://host:8555/path")
         parser.add_argument(
@@ -32,6 +32,17 @@ def main() -> int:
             default=Path(os.getenv("FORESIGHT_CAPTURE_DATA_DIR", "data/capture")),
             help="Local directory for rolling segments and durable events.",
         )
+        parser.add_argument(
+            "--telemetry-host",
+            default=os.getenv("FORESIGHT_TELEMETRY_HOST", "0.0.0.0"),
+            help="LAN interface for Android sensor telemetry.",
+        )
+        parser.add_argument(
+            "--telemetry-port",
+            type=int,
+            default=int(os.getenv("FORESIGHT_TELEMETRY_PORT", "8766")),
+            help="LAN HTTP port for Android telemetry binding and batches.",
+        )
         options = parser.parse_args()
         return run_capture_cli(
             sys.stdin,
@@ -39,6 +50,8 @@ def main() -> int:
             source_uri=options.source_uri,
             ffmpeg_executable=options.ffmpeg,
             data_root=options.data_root,
+            telemetry_host=options.telemetry_host,
+            telemetry_port=options.telemetry_port,
         )
     audio_output = WindowsLabAudioOutput()
     speech_output = (

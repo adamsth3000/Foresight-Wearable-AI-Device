@@ -1,4 +1,4 @@
-# Phase 1B local-development defaults. The Python MVP accepts equivalent CLI options;
+# Phase 1C local-development defaults. The Python MVP accepts equivalent CLI options;
 # no YAML runtime dependency is introduced at this milestone.
 source:
   source_id: foresight-phone
@@ -14,3 +14,8 @@ events:
   post_seconds: 15
 ffmpeg:
   executable: ffmpeg
+telemetry:
+  host: 0.0.0.0
+  port: 8766
+  protocol: http_json_bind_then_batch
+  bounded_source_queue_records: 2048

@@ -16,8 +16,11 @@ from foresight_device.capture import (
     MediaSegment,
     MediaSourceDescriptor,
     RollingBuffer,
+    SessionTelemetryStore,
+    TelemetryReceiver,
 )
-from foresight_device.capture.ffmpeg_ingress import FfmpegIngressErrorfrom foresight_device.interaction import (
+from foresight_device.capture.ffmpeg_ingress import FfmpegIngressError
+from foresight_device.interaction import (
     AssistantResponse,
     AssistantState,
     InteractionModality,
@@ -327,23 +330,35 @@ def run_capture_cli(
     segment_seconds: float = 2.0,
     pre_seconds: float = 30.0,
     post_seconds: float = 15.0,
+    telemetry_host: str = "0.0.0.0",
+    telemetry_port: int | None = None,
 ) -> int:
     """Run the small manual Phase 1B capture control loop."""
 
     started_at = datetime.now(UTC)
+    capture_session_id = str(uuid4())
     source = ConfiguredMediaSource(
         MediaSourceDescriptor(
             source_id="foresight-phone",
-            capture_session_id=str(uuid4()),
+            capture_session_id=capture_session_id,
             transport="rtsp",
             uri=source_uri,
             video_source="phone_rear_camera",
             audio_source="phone_microphone",
             session_started_utc=started_at,
             session_started_monotonic_ns=time.monotonic_ns(),
+            source_session_id=f"rtsp-ingress-{capture_session_id}",
             metadata={"source_type": "rtsp"},
         )
     )
+    telemetry_store = SessionTelemetryStore(data_root / "sessions", capture_session_id)
+    telemetry_receiver: TelemetryReceiver | None = None
+    if telemetry_port is not None:
+        try:
+            telemetry_receiver = TelemetryReceiver(telemetry_store, telemetry_host, telemetry_port)
+            telemetry_receiver.start()
+        except OSError as exc:
+            output_stream.write(f"Telemetry unavailable: {exc}\n")
     rolling_buffer = RollingBuffer(retention_seconds)
     event_service: EventService
 
@@ -368,16 +383,27 @@ def run_capture_cli(
         ingress.concatenate_to_mp4,
         pre_seconds=pre_seconds,
         post_seconds=post_seconds,
+        telemetry_store=telemetry_store,
     )
 
     try:
         ingress.start()
     except FfmpegIngressError as exc:
+        if telemetry_receiver is not None:
+            telemetry_receiver.stop()
         output_stream.write(f"Capture unavailable: {exc}\n")
         output_stream.flush()
         return 1
 
-    output_stream.write("Foresight Phase 1B capture started. Type 'event', 'status', or 'stop'.\n")
+    output_stream.write(
+        f"Foresight Phase 1C capture started. Session: {capture_session_id}. "
+        "Type 'event', 'status', or 'stop'.\n"
+    )
+    if telemetry_receiver is not None:
+        output_stream.write(
+            f"Telemetry listener: {telemetry_host}:{telemetry_receiver.port}; enter "
+            "http://<laptop-LAN-IP>:<port> in Android (POST /v1/bind then /v1/records).\n"
+        )
     output_stream.flush()
     try:
         while True:
@@ -399,7 +425,10 @@ def run_capture_cli(
                 output_stream.write(
                     f"Segments: {len(rolling_buffer.segments)}; "
                     f"pending events: {event_service.pending_count}; "
-                    f"ingress running: {ingress.is_running}.\n"
+                    f"ingress worker running: {ingress.is_running}; "
+                    f"ffmpeg running: {ingress.ffmpeg_running}; "
+                    f"reconnecting: {ingress.reconnecting}; "
+                    f"reconnect attempt: {ingress.reconnect_attempt}.\n"
                 )
                 if failure is not None:
                     output_stream.write(f"{failure}\n")
@@ -418,4 +447,6 @@ def run_capture_cli(
             output_stream.write(f"{cleanup_error}\n")
         output_stream.write("Capture stopped.\n")
         output_stream.flush()
+        if telemetry_receiver is not None:
+            telemetry_receiver.stop()
     return 0

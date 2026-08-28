@@ -13,4 +13,9 @@ class StreamLifecycleTest {
     fun `streaming state is available to service and UI`() {
         assertEquals("STREAMING", StreamLifecycle.STREAMING.name)
     }
+
+    @Test
+    fun `reconnecting is distinct from connected streaming`() {
+        assertEquals("RECONNECTING", StreamLifecycle.RECONNECTING.name)
+    }
 }

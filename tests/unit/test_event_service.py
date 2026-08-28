@@ -119,8 +119,8 @@ def test_early_event_waits_for_post_roll_and_preserves_available_media(tmp_path:
     assert service.pending_count == 0
 
 
-def test_non_overlapping_late_segment_does_not_finalize_empty_event(tmp_path: Path) -> None:
-    """A delayed first closed segment must not complete an event with no media."""
+def test_source_outage_discards_event_with_no_real_media(tmp_path: Path) -> None:
+    """A delayed first segment cannot fabricate media for an empty event window."""
 
     rolling_buffer = RollingBuffer(retention_seconds=60)
     service = EventService(
@@ -137,8 +137,8 @@ def test_non_overlapping_late_segment_does_not_finalize_empty_event(tmp_path: Pa
     rolling_buffer.add(late, now=late.ended_at_utc)
 
     assert service.observe_segment(late) == ()
-    assert service.pending_count == 1
-    assert service.abort_pending() == 1
+    assert service.pending_count == 0
+    assert service.abort_pending() == 0
 
 
 def test_capture_progress_across_a_segment_gap_finalizes_early_event(tmp_path: Path) -> None:
@@ -171,6 +171,37 @@ def test_capture_progress_across_a_segment_gap_finalizes_early_event(tmp_path: P
     assert len(completed) == 1
     assert completed[0].actual_start_utc == trigger
     assert completed[0].actual_end_utc == trigger + timedelta(seconds=14.6)
+    assert service.pending_count == 0
+
+
+def test_event_promotes_available_media_across_a_real_source_outage(tmp_path: Path) -> None:
+    """A reconnect gap is preserved as a gap rather than fabricated media."""
+
+    rolling_buffer = RollingBuffer(retention_seconds=60)
+    service = EventService(
+        _source(),
+        rolling_buffer,
+        tmp_path / "events",
+        _concatenate,
+        pre_seconds=0,
+        post_seconds=15,
+    )
+    trigger = datetime(2026, 8, 27, tzinfo=UTC)
+    service.trigger(trigger_utc=trigger, trigger_monotonic_ns=99)
+    before_outage = _segment(tmp_path, 0, 0)
+    rolling_buffer.add(before_outage, now=before_outage.ended_at_utc)
+    assert service.observe_segment(before_outage) == ()
+
+    # RTSP was unavailable from the end of the first segment until this later
+    # post-reconnect segment. It establishes capture progress but is outside the
+    # requested event window, so only genuine overlapping media is promoted.
+    after_outage = _segment(tmp_path, 1, 20)
+    rolling_buffer.add(after_outage, now=after_outage.ended_at_utc)
+    completed = service.observe_segment(after_outage)
+
+    assert len(completed) == 1
+    assert completed[0].actual_start_utc == before_outage.started_at_utc
+    assert completed[0].actual_end_utc == before_outage.ended_at_utc
     assert service.pending_count == 0
 
 

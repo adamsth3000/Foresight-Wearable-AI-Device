@@ -21,6 +21,7 @@ class MediaSourceDescriptor:
     audio_source: str
     session_started_utc: datetime
     session_started_monotonic_ns: int
+    source_session_id: str | None = None
     metadata: Mapping[str, str] = field(default_factory=dict)
 
 
@@ -51,6 +52,8 @@ class CaptureEvent:
     manifest_path: Path
     source: MediaSourceDescriptor
     created_at_utc: datetime
+    sensors_path: Path | None = None
+    sensor_record_count: int = 0
 
     @classmethod
     def new_id(cls) -> str:

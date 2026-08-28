@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import com.foresight.gateway.R
@@ -27,7 +28,7 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         when (intent?.action) {
             ACTION_START -> {
                 startAsForeground("Preparing capture")
-                runCatching { controller.start(intent.requireEndpoint()) }
+                runCatching { controller.start(intent.requireEndpoint(), intent.telemetryEndpoint()) }
                     .onFailure { onCaptureStateChanged(StreamLifecycle.ERROR, null, it.message) }
             }
 
@@ -66,7 +67,8 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
                 NOTIFICATION_ID,
                 notification,
                 android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                    locationForegroundServiceType(),
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
@@ -108,13 +110,25 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
     private fun notificationManager(): NotificationManager =
         getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    private fun locationForegroundServiceType(): Int =
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        ) {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+        } else {
+            0
+        }
+
     private fun Intent.requireEndpoint(): String =
         getStringExtra(EXTRA_ENDPOINT) ?: error("An RTSP endpoint is required.")
+
+    private fun Intent.telemetryEndpoint(): String = getStringExtra(EXTRA_TELEMETRY_ENDPOINT).orEmpty()
 
     companion object {
         const val ACTION_START = "com.foresight.gateway.action.START_CAPTURE"
         const val ACTION_STOP = "com.foresight.gateway.action.STOP_CAPTURE"
         const val EXTRA_ENDPOINT = "com.foresight.gateway.extra.RTSP_ENDPOINT"
+        const val EXTRA_TELEMETRY_ENDPOINT = "com.foresight.gateway.extra.TELEMETRY_ENDPOINT"
 
         private const val NOTIFICATION_CHANNEL_ID = "foresight_capture"
         private const val NOTIFICATION_ID = 1001

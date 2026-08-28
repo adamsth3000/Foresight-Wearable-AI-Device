@@ -5,6 +5,7 @@ enum class StreamLifecycle {
     IDLE,
     PREPARING,
     CONNECTING,
+    RECONNECTING,
     STREAMING,
     STOPPING,
     ERROR,

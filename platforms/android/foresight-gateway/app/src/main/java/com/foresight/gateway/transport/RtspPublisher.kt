@@ -5,17 +5,21 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Size
 import android.util.Log
 import com.pedro.common.ConnectChecker
+import com.pedro.common.socket.base.SocketType
 import com.pedro.encoder.input.sources.OrientationForced
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.video.CameraHelper
+import com.pedro.encoder.input.video.FrameCapturedCallback
 import com.pedro.library.rtsp.RtspStream
 import kotlin.math.abs
 import kotlin.math.sqrt
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Phone-local RTSP publisher. RootEncoder is confined here so higher layers only
@@ -28,22 +32,54 @@ class RtspPublisher(
     interface Listener {
         fun onLifecycleChanged(lifecycle: StreamLifecycle, detail: String? = null)
         fun onBitrateChanged(bitsPerSecond: Long)
+        fun onCameraTimingCapability(timestampSource: String)
+        fun onCameraFrameCaptured(frameNumber: Long, timestampNanos: Long)
     }
 
     private val applicationContext = context.applicationContext
-    private val cameraSource = Camera2Source(applicationContext)
-    private val stream = RtspStream(applicationContext, this, cameraSource, MicrophoneSource())
+    private var streamGeneration = 0
+    private lateinit var cameraSource: Camera2Source
+    private var stream = createStream()
+    private val reconnectPolicy = RtspReconnectPolicy()
+    private val retryState = RtspRetryState()
+    private val transportHealthMonitor = RtspTransportHealthMonitor()
+    private val senderProgressMonitor = RtspSenderProgressMonitor()
+    private val cameraFramesProduced = AtomicLong(0)
+    private var captureRequested = false
+    private var retryReason: String? = null
+    private var awaitingKtorFailure = false
+    private var fatalTransportError = false
+    private var transportConnected = false
+    private var activeEndpoint: String? = null
+    private var retryAttemptStartedElapsedMillis: Long? = null
+    private var rebuildingTransport = false
 
     fun start(endpoint: String): Boolean {
+        return startInternal(endpoint, resetRetryPolicy = true)
+    }
+
+    private fun startInternal(endpoint: String, resetRetryPolicy: Boolean): Boolean {
         if (stream.isStreaming) {
             Log.i(TAG, "RTSP stream is already active.")
             return true
         }
+        captureRequested = true
+        activeEndpoint = endpoint
+        if (resetRetryPolicy) reconnectPolicy.reset()
+        cancelScheduledRetry("new capture request")
+        cancelKtorFailureWait("new capture request")
+        cancelRetryAttemptWatchdog("new capture request")
+        transportHealthMonitor.reset()
+        senderProgressMonitor.reset()
+        cameraFramesProduced.set(0)
+        fatalTransportError = false
+        transportConnected = false
 
         listener.onLifecycleChanged(StreamLifecycle.PREPARING)
         val cameraSize = selectCameraSize()
         cameraSource.setRequiredResolution(cameraSize)
         logCameraGeometry(cameraSize)
+        listener.onCameraTimingCapability(cameraTimestampSource())
         Log.i(
             TAG,
             "Preparing H.264 encoder ${VIDEO_WIDTH}x${VIDEO_HEIGHT} at ${VIDEO_FPS} fps, " +
@@ -88,14 +124,45 @@ class RtspPublisher(
 
         listener.onLifecycleChanged(StreamLifecycle.CONNECTING)
         Log.i(TAG, "Starting RTSP stream: $endpoint")
+        // RootEncoder reconnects only when its retry budget is positive. The app owns timing;
+        // this generous budget simply keeps the requested foreground capture retryable.
+        stream.getStreamClient().setReTries(ROOT_ENCODER_RETRY_BUDGET)
+        // The Java socket implementation has no write timeout. Ktor turns a blocked RTSP/TCP
+        // media write into an exception, which RootEncoder delivers through ConnectChecker.
+        stream.getStreamClient().setSocketType(SocketType.KTOR)
+        stream.getStreamClient().setSocketTimeout(RTSP_SOCKET_TIMEOUT_MILLIS)
+        stream.getStreamClient().setLogs(true)
+        Log.i(
+            TAG,
+            "RTSP transport configured: protocol=TCP, socket=Ktor, ioTimeout=" +
+                "${RTSP_SOCKET_TIMEOUT_MILLIS}ms, serverLivenessProbe=disabled.",
+        )
+        cameraSource.enableFrameCaptureCallback(object : FrameCapturedCallback {
+            override fun onFrameCaptured(frameNumber: Long, timestamp: Long) {
+                cameraFramesProduced.incrementAndGet()
+                listener.onCameraFrameCaptured(frameNumber, timestamp)
+            }
+        })
         stream.startStream(endpoint)
+        startTransportDiagnostics()
         Log.i(TAG, "RootEncoder start requested for camera ${cameraSource.getCurrentCameraId()}.")
         scheduleTextureDiagnostics(cameraSize)
         return true
     }
 
     fun stop() {
+        captureRequested = false
+        cancelScheduledRetry("capture stop")
+        cancelKtorFailureWait("capture stop")
+        cancelRetryAttemptWatchdog("capture stop")
+        reconnectPolicy.reset()
+        transportHealthMonitor.reset()
+        senderProgressMonitor.reset()
+        fatalTransportError = false
+        transportConnected = false
+        mainHandler.removeCallbacks(transportDiagnostics)
         if (!stream.isStreaming) {
+            listener.onLifecycleChanged(StreamLifecycle.IDLE)
             return
         }
         listener.onLifecycleChanged(StreamLifecycle.STOPPING)
@@ -103,18 +170,39 @@ class RtspPublisher(
     }
 
     override fun onConnectionStarted(url: String) {
+        retryState.connectionStarted()
+        cancelKtorFailureWait("RootEncoder connection started")
+        transportConnected = false
         Log.i(TAG, "RTSP connection started: $url")
     }
 
     override fun onConnectionSuccess() {
-        Log.i(TAG, "RTSP connection established.")
-        listener.onLifecycleChanged(StreamLifecycle.STREAMING)
+        val recoveredAfterAttempts = reconnectPolicy.attempts()
+        reconnectPolicy.reset()
+        retryState.reset()
+        cancelKtorFailureWait("RTSP connection success")
+        cancelRetryAttemptWatchdog("RTSP connection success")
+        transportHealthMonitor.reset()
+        transportConnected = true
+        if (recoveredAfterAttempts > 0) {
+            Log.i(TAG, "RTSP connection recovered after $recoveredAfterAttempts retry attempt(s).")
+            listener.onLifecycleChanged(
+                StreamLifecycle.STREAMING,
+                "RTSP recovered after $recoveredAfterAttempts retry attempt(s).",
+            )
+        } else {
+            Log.i(TAG, "RTSP connection established.")
+            listener.onLifecycleChanged(StreamLifecycle.STREAMING, "RTSP connected.")
+        }
     }
 
     override fun onConnectionFailed(reason: String) {
-        Log.e(TAG, "RTSP connection failed: $reason")
-        listener.onLifecycleChanged(StreamLifecycle.ERROR, reason)
-        stream.stopStream()
+        transportConnected = false
+        retryState.connectionFailed()
+        cancelKtorFailureWait("RootEncoder connection failure")
+        cancelRetryAttemptWatchdog("RTSP connection failure")
+        Log.w(TAG, "RTSP connection failed: $reason")
+        scheduleReconnect(reason)
     }
 
     override fun onNewBitrate(bitrate: Long) {
@@ -122,15 +210,324 @@ class RtspPublisher(
     }
 
     override fun onDisconnect() {
+        transportConnected = false
+        retryState.connectionFailed()
+        cancelKtorFailureWait("RootEncoder disconnect")
+        cancelRetryAttemptWatchdog("RootEncoder disconnect")
         Log.i(TAG, "RTSP connection disconnected.")
-        listener.onLifecycleChanged(StreamLifecycle.IDLE)
+        if (fatalTransportError) {
+            Log.i(TAG, "RTSP disconnect follows a fatal transport error; retaining ERROR state.")
+            return
+        }
+        if (captureRequested) {
+            scheduleReconnect("RTSP transport disconnected")
+        } else {
+            listener.onLifecycleChanged(StreamLifecycle.IDLE)
+        }
     }
 
     override fun onAuthError() {
+        captureRequested = false
+        cancelScheduledRetry("RTSP authentication failure")
+        cancelKtorFailureWait("RTSP authentication failure")
+        cancelRetryAttemptWatchdog("RTSP authentication failure")
+        fatalTransportError = true
+        transportConnected = false
+        Log.e(TAG, "RTSP authentication failed; automatic retry is disabled.")
         listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP authentication failed.")
+        if (stream.isStreaming) stream.stopStream()
     }
 
-    override fun onAuthSuccess() = Unit
+    override fun onAuthSuccess() {
+        Log.i(TAG, "RTSP authentication succeeded.")
+    }
+
+    private fun scheduleReconnect(reason: String) {
+        transportConnected = false
+        if (!captureRequested) {
+            Log.i(TAG, "RTSP retry skipped because capture is no longer requested.")
+            return
+        }
+        if (!retryState.schedule()) {
+            Log.i(
+                TAG,
+                "RTSP retry already scheduled or in flight; ignoring duplicate failure: $reason " +
+                    "(timerScheduled=${retryState.isTimerScheduled}, inFlight=${retryState.isAttemptInFlight})",
+            )
+            return
+        }
+        val delayMillis = reconnectPolicy.nextDelayMillis()
+        retryReason = reason
+        Log.w(
+            TAG,
+            "RTSP reconnect attempt ${reconnectPolicy.attempts()} scheduled in ${delayMillis}ms: $reason",
+        )
+        listener.onLifecycleChanged(
+            StreamLifecycle.RECONNECTING,
+            "RTSP reconnect ${reconnectPolicy.attempts()} in ${delayMillis / 1_000}s: $reason",
+        )
+        mainHandler.postDelayed(retryTimer, delayMillis)
+    }
+
+    private val retryTimer = Runnable {
+        val reason = retryReason ?: "RTSP transport failure"
+        if (!retryState.fireTimer()) {
+            Log.w(TAG, "RTSP retry timer fired after cancellation; no retry will run.")
+            return@Runnable
+        }
+        retryReason = null
+        if (!captureRequested || fatalTransportError) {
+            Log.i(TAG, "RTSP retry timer fired after capture stopped; retry cancelled.")
+            retryState.reset()
+            return@Runnable
+        }
+        Log.i(TAG, "RTSP retry timer fired for attempt ${reconnectPolicy.attempts()}: $reason")
+        try {
+            Log.i(TAG, "Calling RootEncoder transport-only reTry() for attempt ${reconnectPolicy.attempts()}.")
+            // The app has already waited the backoff interval; zero avoids an opaque second timer
+            // inside RootEncoder and makes retry execution observable in this lifecycle.
+            val accepted = stream.getStreamClient().reTry(0L, reason)
+            Log.i(TAG, "RootEncoder reTry() returned $accepted for attempt ${reconnectPolicy.attempts()}.")
+            if (!accepted) {
+                retryState.reset()
+                captureRequested = false
+                fatalTransportError = true
+                Log.e(TAG, "RTSP cannot retry further: $reason")
+                listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP retry unavailable: $reason")
+                if (stream.isStreaming) stream.stopStream()
+            } else {
+                retryAttemptStartedElapsedMillis = SystemClock.elapsedRealtime()
+                Log.i(
+                    TAG,
+                    "RTSP retry attempt ${reconnectPolicy.attempts()} started at " +
+                        "${retryAttemptStartedElapsedMillis}ms; deadline in " +
+                        "${RETRY_ATTEMPT_DEADLINE_MILLIS}ms.",
+                )
+                mainHandler.postDelayed(retryAttemptWatchdog, RETRY_ATTEMPT_DEADLINE_MILLIS)
+            }
+        } catch (error: RuntimeException) {
+            retryState.connectionFailed()
+            Log.e(TAG, "RootEncoder reTry() threw for attempt ${reconnectPolicy.attempts()}.", error)
+            scheduleReconnect("RTSP retry invocation failed: ${error.message ?: error.javaClass.simpleName}")
+        }
+    }
+
+    private val retryAttemptWatchdog = Runnable {
+        if (!retryState.isAttemptInFlight || !captureRequested || fatalTransportError) {
+            Log.i(TAG, "RTSP retry-attempt watchdog cancelled before expiration.")
+            return@Runnable
+        }
+        val client = stream.getStreamClient()
+        Log.e(
+            TAG,
+            "RTSP retry-attempt watchdog expired after ${RETRY_ATTEMPT_DEADLINE_MILLIS}ms; " +
+                "startedAt=${retryAttemptStartedElapsedMillis}ms, streamIsStreaming=${stream.isStreaming}, " +
+                "senderQueue=${client.getItemsInCache()}/${client.getCacheSize()}, " +
+                "sentVideo=${client.getSentVideoFrames()}, sentAudio=${client.getSentAudioFrames()}.",
+        )
+        if (!retryState.attemptDeadlineExpired()) return@Runnable
+        retryAttemptStartedElapsedMillis = null
+        listener.onLifecycleChanged(
+            StreamLifecycle.RECONNECTING,
+            "RTSP retry stalled; rebuilding the transport stack.",
+        )
+        rebuildTransportStack("retry attempt did not produce a terminal callback")
+    }
+
+    private fun awaitKtorFailure(reason: String) {
+        if (awaitingKtorFailure || retryState.isTimerScheduled || retryState.isAttemptInFlight) return
+        awaitingKtorFailure = true
+        transportConnected = false
+        Log.w(
+            TAG,
+            "RTSP sender stalled; waiting ${KTOR_FAILURE_GRACE_MILLIS}ms for Ktor write failure " +
+                "before fallback retry: $reason",
+        )
+        listener.onLifecycleChanged(StreamLifecycle.RECONNECTING, "RTSP sender stalled; verifying transport failure.")
+        mainHandler.postDelayed(stalledTransportFallback, KTOR_FAILURE_GRACE_MILLIS)
+    }
+
+    private val stalledTransportFallback = Runnable {
+        awaitingKtorFailure = false
+        if (!captureRequested || fatalTransportError || retryState.isTimerScheduled || retryState.isAttemptInFlight) {
+            Log.i(TAG, "RTSP stalled-transport fallback cancelled.")
+            return@Runnable
+        }
+        Log.w(TAG, "Ktor failure callback did not arrive before fallback deadline; scheduling RTSP retry.")
+        scheduleReconnect("RTSP sender stalled beyond Ktor write-timeout grace")
+    }
+
+    private fun cancelScheduledRetry(reason: String) {
+        if (retryState.isTimerScheduled) Log.i(TAG, "Cancelling scheduled RTSP retry: $reason")
+        mainHandler.removeCallbacks(retryTimer)
+        retryReason = null
+        retryState.reset()
+    }
+
+    private fun cancelKtorFailureWait(reason: String) {
+        if (awaitingKtorFailure) Log.i(TAG, "Cancelling Ktor failure wait: $reason")
+        mainHandler.removeCallbacks(stalledTransportFallback)
+        awaitingKtorFailure = false
+    }
+
+    private fun cancelRetryAttemptWatchdog(reason: String) {
+        if (retryAttemptStartedElapsedMillis != null) {
+            Log.i(TAG, "Cancelling RTSP retry-attempt watchdog: $reason")
+        }
+        mainHandler.removeCallbacks(retryAttemptWatchdog)
+        retryAttemptStartedElapsedMillis = null
+    }
+
+    private fun rebuildTransportStack(reason: String) {
+        if (rebuildingTransport) {
+            Log.i(TAG, "RTSP transport rebuild is already in progress.")
+            return
+        }
+        val endpoint = activeEndpoint
+        if (endpoint == null) {
+            captureRequested = false
+            fatalTransportError = true
+            listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP retry lost its endpoint.")
+            return
+        }
+        rebuildingTransport = true
+        val retiredGeneration = streamGeneration
+        // Retire callbacks before stopping the old stream: its RootEncoder retry coroutine can be
+        // stuck in socket cleanup and must not alter the replacement stream's state later.
+        streamGeneration += 1
+        Log.w(
+            TAG,
+            "Retiring stuck RootEncoder transport generation $retiredGeneration: $reason",
+        )
+        try {
+            stream.stopStream()
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Retired RootEncoder transport stop raised an exception.", error)
+        }
+        mainHandler.postDelayed({
+            if (!captureRequested || fatalTransportError) {
+                rebuildingTransport = false
+                Log.i(TAG, "RTSP transport rebuild cancelled before replacement start.")
+                return@postDelayed
+            }
+            stream = createStream()
+            rebuildingTransport = false
+            Log.i(TAG, "Starting replacement RootEncoder transport generation $streamGeneration.")
+            if (!startInternal(endpoint, resetRetryPolicy = false)) {
+                captureRequested = false
+                fatalTransportError = true
+                listener.onLifecycleChanged(StreamLifecycle.ERROR, "Unable to rebuild RTSP transport.")
+            }
+        }, TRANSPORT_REBUILD_DELAY_MILLIS)
+    }
+
+    private fun createStream(): RtspStream {
+        val generation = ++streamGeneration
+        cameraSource = Camera2Source(applicationContext)
+        return RtspStream(
+            applicationContext,
+            generationScopedConnectChecker(generation),
+            cameraSource,
+            MicrophoneSource(),
+        )
+    }
+
+    private fun generationScopedConnectChecker(generation: Int) = object : ConnectChecker {
+        override fun onConnectionStarted(url: String) {
+            forwardIfCurrent(generation) { this@RtspPublisher.onConnectionStarted(url) }
+        }
+
+        override fun onConnectionSuccess() {
+            forwardIfCurrent(generation) { this@RtspPublisher.onConnectionSuccess() }
+        }
+
+        override fun onConnectionFailed(reason: String) {
+            forwardIfCurrent(generation) { this@RtspPublisher.onConnectionFailed(reason) }
+        }
+
+        override fun onNewBitrate(bitrate: Long) {
+            forwardIfCurrent(generation) { this@RtspPublisher.onNewBitrate(bitrate) }
+        }
+
+        override fun onDisconnect() {
+            forwardIfCurrent(generation) { this@RtspPublisher.onDisconnect() }
+        }
+
+        override fun onAuthError() {
+            forwardIfCurrent(generation) { this@RtspPublisher.onAuthError() }
+        }
+
+        override fun onAuthSuccess() {
+            forwardIfCurrent(generation) { this@RtspPublisher.onAuthSuccess() }
+        }
+    }
+
+    private fun forwardIfCurrent(generation: Int, callback: () -> Unit) {
+        if (generation == streamGeneration) callback()
+        else Log.i(TAG, "Ignoring callback from retired RootEncoder transport generation $generation.")
+    }
+
+    private fun startTransportDiagnostics() {
+        mainHandler.removeCallbacks(transportDiagnostics)
+        mainHandler.postDelayed(transportDiagnostics, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
+    }
+
+    private val transportDiagnostics = object : Runnable {
+        override fun run() {
+            if (!captureRequested || fatalTransportError) return
+
+            val client = stream.getStreamClient()
+            val snapshot = RtspTransportHealthMonitor.Snapshot(
+                queueItems = client.getItemsInCache(),
+                queueCapacity = client.getCacheSize(),
+                sentVideoFrames = client.getSentVideoFrames(),
+                sentAudioFrames = client.getSentAudioFrames(),
+                droppedVideoFrames = client.getDroppedVideoFrames(),
+                droppedAudioFrames = client.getDroppedAudioFrames(),
+                bytesSent = client.getBytesSend(),
+            )
+            val progress = senderProgressMonitor.observe(
+                RtspSenderProgressMonitor.Snapshot(
+                    elapsedRealtimeMillis = SystemClock.elapsedRealtime(),
+                    cameraFrames = cameraFramesProduced.get(),
+                    queueItems = snapshot.queueItems,
+                    sentVideoFrames = snapshot.sentVideoFrames,
+                    sentAudioFrames = snapshot.sentAudioFrames,
+                    senderByteCounter = snapshot.bytesSent,
+                ),
+            )
+            Log.i(
+                TAG,
+                "RTSP transport probe: callbackConnected=$transportConnected, " +
+                    "retryScheduled=${retryState.isTimerScheduled}, retryInFlight=${retryState.isAttemptInFlight}, " +
+                    "senderQueue=${snapshot.queueItems}/${snapshot.queueCapacity}, " +
+                    "sentVideo=${snapshot.sentVideoFrames}, sentAudio=${snapshot.sentAudioFrames}, " +
+                    "droppedVideo=${snapshot.droppedVideoFrames}, droppedAudio=${snapshot.droppedAudioFrames}, " +
+                    "senderByteCounter=${snapshot.bytesSent}, " +
+                    "cameraInputDelta=${progress.cameraFramesDelta}, queueDelta=${progress.queueDelta}, " +
+                    "senderFrameDelta=${progress.senderFramesDelta}, senderByteDelta=${progress.senderBytesDelta}, " +
+                    "lastRootEncoderSenderProgress=${progress.lastSenderProgressElapsedMillis}ms, " +
+                    "socketWriteCompletion=not_exposed_by_rootencoder.",
+            )
+            if (transportConnected && progress.shouldRebuild && !rebuildingTransport) {
+                transportConnected = false
+                Log.w(
+                    TAG,
+                    "RTSP sender progress stalled for ${progress.stalledSamples} probes while Camera2 input " +
+                        "continued; rebuilding before the sender queue fills.",
+                )
+                listener.onLifecycleChanged(StreamLifecycle.RECONNECTING, "RTSP sender stalled; rebuilding transport.")
+                rebuildTransportStack("camera input continued while RootEncoder sender counters froze")
+                return
+            }
+            val result = transportHealthMonitor.observe(snapshot)
+            if (transportConnected && result.shouldReconnect) {
+                Log.w(TAG, "RTSP transport stall detected: ${result.reason}")
+                awaitKtorFailure(result.reason ?: "RTSP sender stalled")
+            }
+            mainHandler.postDelayed(this, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
+        }
+    }
 
     /**
      * RootEncoder otherwise selects a camera surface independently from the encoder size. Its GL
@@ -164,6 +561,17 @@ class RtspPublisher(
                 "encoder=${VIDEO_WIDTH}x${VIDEO_HEIGHT}, rotation=$VIDEO_ROTATION_DEGREES, " +
                 "requestedCameraToEncoder=16:9-to-16:9.",
         )
+    }
+
+    private fun cameraTimestampSource(): String {
+        val cameraManager = applicationContext.getSystemService(CameraManager::class.java)
+        val source = cameraManager.getCameraCharacteristics(cameraSource.getCurrentCameraId())
+            .get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE)
+        return when (source) {
+            CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME -> "realtime"
+            CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_UNKNOWN -> "unknown"
+            else -> "unknown"
+        }.also { Log.i(TAG, "Camera sensor timestamp source: $it") }
     }
 
     private fun scheduleTextureDiagnostics(cameraSize: Size) {
@@ -227,6 +635,12 @@ class RtspPublisher(
         const val AUDIO_BITRATE_BITS_PER_SECOND = 128_000
         const val TEXTURE_DIAGNOSTIC_DELAY_MILLIS = 1_000L
         const val MATRIX_EPSILON = 0.0001f
+        const val ROOT_ENCODER_RETRY_BUDGET = 1_000
+        const val RTSP_SOCKET_TIMEOUT_MILLIS = 8_000L
+        const val TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS = 2_000L
+        const val KTOR_FAILURE_GRACE_MILLIS = RTSP_SOCKET_TIMEOUT_MILLIS + 2_000L
+        const val RETRY_ATTEMPT_DEADLINE_MILLIS = 12_000L
+        const val TRANSPORT_REBUILD_DELAY_MILLIS = 750L
         val mainHandler = Handler(Looper.getMainLooper())
     }
 }

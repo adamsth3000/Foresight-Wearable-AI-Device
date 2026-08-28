@@ -15,6 +15,7 @@ from foresight_device.core.logging import get_logger
 from .media_source import MediaSource
 from .models import CaptureEvent, MediaSegment
 from .rolling_buffer import RollingBuffer
+from .telemetry import SessionTelemetryStore, copy_event_sensor_records
 
 SegmentConcatenator = Callable[[Sequence[Path], Path], None]
 LOGGER = get_logger(__name__)
@@ -47,6 +48,7 @@ class EventService:
         *,
         pre_seconds: float = 30.0,
         post_seconds: float = 15.0,
+        telemetry_store: SessionTelemetryStore | None = None,
     ) -> None:
         if pre_seconds < 0 or post_seconds < 0:
             raise ValueError("event durations cannot be negative")
@@ -56,6 +58,7 @@ class EventService:
         self._concatenate_segments = concatenate_segments
         self._pre_seconds = pre_seconds
         self._post_seconds = post_seconds
+        self._telemetry_store = telemetry_store
         self._pending: list[_PendingEvent] = []
         self._latest_capture_progress_utc: datetime | None = None
 
@@ -126,6 +129,20 @@ class EventService:
             progressed_through_requested_end = (
                 segment.ended_at_utc >= pending.required_end_utc
             )
+            if progressed_through_requested_end and not pending.segments:
+                LOGGER.warning(
+                    "capture event discarded because a source outage left no real media "
+                    "in its requested window event_id=%s requested_start_utc=%s "
+                    "requested_end_utc=%s",
+                    pending.event_id,
+                    (
+                        pending.trigger_utc
+                        - timedelta(seconds=pending.requested_pre_seconds)
+                    ).isoformat(),
+                    pending.required_end_utc.isoformat(),
+                )
+                self._pending.remove(pending)
+                continue
             ready_to_finalize = progressed_through_requested_end and bool(pending.segments)
             LOGGER.debug(
                 "capture event evaluation event_id=%s trigger_utc=%s "
@@ -170,6 +187,15 @@ class EventService:
         self._concatenate_segments(tuple(segment.path for segment in segments), media_path)
         media_hash = _sha256_file(media_path)
         created_at = datetime.now(UTC)
+        sensors_path: Path | None = None
+        sensor_record_count = 0
+        if self._telemetry_store is not None:
+            sensors_path, sensor_record_count = copy_event_sensor_records(
+                self._telemetry_store,
+                event_dir,
+                segments[0].started_at_utc,
+                segments[-1].ended_at_utc,
+            )
         event = CaptureEvent(
             event_id=pending.event_id,
             trigger_type=pending.trigger_type,
@@ -184,6 +210,8 @@ class EventService:
             manifest_path=manifest_path,
             source=self._source.descriptor,
             created_at_utc=created_at,
+            sensors_path=sensors_path,
+            sensor_record_count=sensor_record_count,
         )
         manifest_path.write_text(
             json.dumps(_manifest_payload(event), indent=2) + "\n",
@@ -209,10 +237,11 @@ def _sha256_file(path: Path) -> str:
 def _manifest_payload(event: CaptureEvent) -> dict[str, object]:
     source = event.source
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "event_id": event.event_id,
         "capture_session_id": source.capture_session_id,
         "source_id": source.source_id,
+        "source_session_id": source.source_session_id,
         "trigger_type": event.trigger_type,
         "trigger_utc": event.trigger_utc.isoformat(),
         "trigger_monotonic_ns": event.trigger_monotonic_ns,
@@ -221,6 +250,15 @@ def _manifest_payload(event: CaptureEvent) -> dict[str, object]:
         "actual_preserved_start_utc": event.actual_start_utc.isoformat(),
         "actual_preserved_end_utc": event.actual_end_utc.isoformat(),
         "media": {"filename": event.media_path.name, "sha256": event.media_sha256},
+        "sensors": (
+            {
+                "filename": event.sensors_path.name,
+                "record_count": event.sensor_record_count,
+                "selection": "observed_at_utc within actual preserved media window",
+            }
+            if event.sensors_path is not None
+            else None
+        ),
         "source": {
             "transport": source.transport,
             "uri": source.uri,

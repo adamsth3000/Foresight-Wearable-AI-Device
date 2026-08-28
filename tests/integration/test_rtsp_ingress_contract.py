@@ -81,8 +81,8 @@ def test_ingress_callback_and_stop_handle_an_incomplete_early_event(tmp_path: Pa
     ingress.stop()
 
     assert completed == []
-    assert event_service.pending_count == 1
-    assert event_service.abort_pending() == 1
+    assert event_service.pending_count == 0
+    assert event_service.abort_pending() == 0
     assert ingress.cleanup_temporary_media() is None
     assert not buffer_dir.exists()
 
@@ -184,6 +184,18 @@ def test_capture_cli_uses_capture_session_id_for_temporary_buffer(
         @property
         def failure_message(self) -> None:
             return None
+
+        @property
+        def ffmpeg_running(self) -> bool:
+            return False
+
+        @property
+        def reconnecting(self) -> bool:
+            return False
+
+        @property
+        def reconnect_attempt(self) -> int:
+            return 0
 
         def start(self) -> None:
             return None
