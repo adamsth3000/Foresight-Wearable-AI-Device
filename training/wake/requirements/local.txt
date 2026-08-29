@@ -1,0 +1,38 @@
+# Separate Windows prototype/evaluation environment. Prefer Python 3.11.
+# Install manually with: py -3.11 -m pip install -r training/wake/requirements/local.txt
+PyYAML>=6.0,<7
+numpy>=2.0,<3
+scipy>=1.14,<2
+soundfile>=0.12,<1
+datasets>=2.21,<3
+requests>=2.32,<3
+tqdm>=4.66,<5
+openwakeword==0.6.0
+onnxruntime>=1.29,<2
+onnx>=1.16,<2
+sounddevice>=0.5,<1
+
+# CPU-only PyTorch for the local prototype benchmark and openWakeWord's data
+# and training modules. The x64 wheel runs through Windows x64 emulation.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1+cpu
+torchaudio==2.7.1+cpu
+webrtcvad-wheels==2.0.14
+
+# Direct imports in openwakeword.train.Model, used only by the tiny real
+# classifier-training benchmark and future explicit training stages.
+torchinfo==1.8.0
+torchmetrics==1.2.0
+
+# Training-only dependency set already validated in .venv-training. Keep these
+# pins stable while the legacy openWakeWord training imports are evaluated.
+pronouncing==0.3.0
+audiomentations==0.43.1
+torch-audiomentations==0.12.0
+speechbrain==1.1.0
+mutagen==1.47.0
+acoustics==0.2.6
+
+# Do not add espeak-phonemizer here. Its source distribution currently fails to
+# build under Windows' cp1252 default encoding. The tiny Piper benchmark uses
+# training/wake/scripts/native_espeak.py to call the installed eSpeak-NG binary.

@@ -1,0 +1,79 @@
+{
+  "completed_at": "2026-08-26T22:09:55.141916+00:00",
+  "config_hash": "f75c9fd08b031d3d2372f06cab90f58753c5b539d0523c2580d41d92209c9f56",
+  "details": {},
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "input_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_001.wav": "4b37ad380abc5044ee1236f62c4d6390df599c68bde947d21a54186e347d9627",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_002.wav": "d7620e0a103f4476e7ec0ce47a8b8530b89107144133f97c88a8f18b8440a44b",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_003.wav": "3244716d7324f883a4895ab9545675d0ece627f833b7aa64629e098edf813898",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_004.wav": "81acb88c0dd21a62b99b89cb57bc155926f9160c88cb8daac50292ecf888ab44",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_005.wav": "834bb0d014a6210941649873d841b3bd17fcdc9df18a7c21b2a4057aa6740593",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_006.wav": "03f2db17685e2a0455cf11929e3f2515db006bee05951321b6f699c358eacdce",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_007.wav": "74a3bf43d0a28968033c1d7e76269f0df1ce3bdce334bd4d50f46225947a0ba3",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_008.wav": "8a8bf21bf591979d96082bf54c11582b9910ed606255ba8e48bd7040f26cd5c8",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_009.wav": "5a85b922cbb0cfdc24a5dd792d595fdab12c7ecc790ca1ec67348a89a082ab91",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_010.wav": "1637672cb6b1bc11c964dc7cff5a314113fbf0517c5a83a0822210372893f272",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_011.wav": "de357c10123d8c68c342dc635be12ec7f5b0d3f63e3099818ccec22aa0f95850",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_012.wav": "19f3bdc4b9d3500ef9711eb73141572485418e25aa2f6cd01a3cb88a5bc0b76d",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_013.wav": "2c263fa3301a6a1684a1f240edf0430e03a93ac8422d74cd684222a89a7322c2",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_014.wav": "d04d526eef0be8f04023c17d2dee8cd3cdbe6065364c98a5ab5916b206e5732f",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_015.wav": "352b97e3b5d27478789db50befc8d602e750cd72be5a05a6b5dc2767708017fb",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_016.wav": "93ae4dfc75f14b2636b9e58bf7c609c04bd1f02b1bb4980fc2b4d04baee0e4c2",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_017.wav": "f92282703c2ead1ba78f2035380294f02c4ea55b72c68b8a5c53867edf439eb3",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_018.wav": "efe9846562da61069ebd596480b13674d608f1954423ad1e9c92da2912155ee4",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_019.wav": "869b97e3bac7b38ba82aa569e4ffdeb2b193a11742e6a7450258d225c3ecb1a6",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_020.wav": "d23848f407743598aa175865b659d6454a0e429eb6bf1fac17a76751d4d8ae0f",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_021.wav": "aa6b42a78add20413a6b5334592f916f5eff32026e39782f5ef70b280d8942c9",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_022.wav": "df146f73bcc3f3b8628f0972ca6b1b14cb6325fe94b26be49cdd7090e0750b3f",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_023.wav": "902e128834ccc4e0aae0d10022589b060e63d110a33f52a2f44e22e1369a573f",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_024.wav": "9c040dd8ba4c64fa5cbb5a3390ffca30808339e6dcb2a6355f1c0ca654eb8995",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_025.wav": "c605c4db07474be6c47022d1fc222c7c924b0ad8098de30b43573404fab44ee3"
+  },
+  "inputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_001.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_002.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_003.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_004.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_005.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_006.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_007.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_008.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_009.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_010.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_011.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_012.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_013.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_014.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_015.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_016.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_017.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_018.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_019.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_020.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_021.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_022.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_023.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_024.wav",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_025.wav"
+  ],
+  "output_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v2\\prototype-v2\\artifacts\\real_positive_split.json": "b7dea6d6591d3591cacf88f47a0a45338c5cafb13e0971acd36a319040fbeab2"
+  },
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v2\\prototype-v2\\artifacts\\real_positive_split.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype-v2",
+  "run_id": "prototype-v2",
+  "stage": "prepare_real_positives",
+  "state": "complete"
+}

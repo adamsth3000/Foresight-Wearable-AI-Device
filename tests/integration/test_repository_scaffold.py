@@ -9,6 +9,7 @@ def test_expected_scaffold_files_exist() -> None:
         repo_root / "pyproject.toml",
         repo_root / ".env.example",
         repo_root / "config" / "logging.yaml",
+        repo_root / "config" / "capture.yaml",
         repo_root / "docs" / "architecture" / "development-architecture.md",
         repo_root / "docs" / "project-state" / "current-state.md",
         repo_root / "src" / "foresight_device" / "core" / "config.py",
@@ -18,7 +19,13 @@ def test_expected_scaffold_files_exist() -> None:
         repo_root / "src" / "foresight_device" / "interaction" / "service.py",
         repo_root / "src" / "foresight_device" / "sessions" / "service.py",
         repo_root / "src" / "foresight_device" / "voice" / "input.py",
+        repo_root / "src" / "foresight_device" / "voice" / "wake.py",
         repo_root / "src" / "foresight_device" / "output" / "audio.py",
+        repo_root / "src" / "foresight_device" / "capture" / "event_service.py",
+        repo_root / "training" / "wake" / "README.md",
+        repo_root / "training" / "wake" / "config" / "hey_foresight.base.yaml",
+        repo_root / "training" / "wake" / "scripts" / "common.py",
+        repo_root / "models" / "wake" / ".gitkeep",
     ]
 
     for path in expected_paths:

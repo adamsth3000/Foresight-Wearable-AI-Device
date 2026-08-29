@@ -54,14 +54,20 @@ Foresight is intended to evolve in phases while preserving a stable core archite
 - Lab v0.1-v0.3 provide normalized interaction/session flows, a terminal simulator, deterministic wake handling, and transient captures.
 - Lab v0.4 provides an optional, replaceable microphone-to-transcript adapter that feeds the same interaction core.
 - Lab v0.5 provides replaceable cue and speech-output adapters dispatched by the CLI after core responses.
+- Lab v0.6 provides an optional hands-free wake adapter that emits a minimal wake event and hands microphone ownership sequentially to the existing bounded voice flow.
+- Phase 1A provides a physically validated Android development gateway that publishes Galaxy S24 FE rear-camera H.264/AAC to local MediaMTX over RTSP/TCP while backgrounded.
+- Phase 1B provides source-neutral Python RTSP ingest, a local rolling media buffer, and manual event promotion; it remains pending physical event-window validation.
+- A separate `training/wake` workspace provides configuration, manifests, and safe stage wrappers for a future developer-provided wake model; no model has been trained or deployed.
 
 ## Current Phase Constraints
-- Keep voice input limited to the optional command-triggered Lab adapter; do not move interaction logic into it.
+- Keep voice command input limited to the optional fixed-duration Lab adapter. The optional wake adapter may wait for the fixed phrase, but must not interpret commands or own interaction state.
 - Keep output limited to the optional Lab cue and speech adapters; do not move output APIs into the interaction core.
-- Do not implement AI, computer vision, continuous listening, production wake-word detection, gesture recognition, GPS integration, GoPro integration, production hardware integration, or AR functionality yet.
+- Do not implement AI, computer vision, continuous full-speech transcription, production wake-word monitoring, gesture recognition, GPS integration, GoPro integration, production hardware integration, or AR functionality yet.
+- Keep Android code under `platforms/android/foresight-gateway` and Python capture policy under `src/foresight_device/capture`; do not couple either layer to the other.
 - Do not represent planned architecture as completed functionality.
 - Do not create duplicate root-level code directories outside `src/foresight_device`.
 - Do not create empty future implementation packages unless a current milestone requires them.
+- Keep wake-model training dependencies and generated artifacts outside the main application environment and `src/foresight_device`.
 
 ## Working Rules
 - Preserve the existing GitHub-facing project description in `README.md`.

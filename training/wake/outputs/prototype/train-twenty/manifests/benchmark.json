@@ -1,0 +1,78 @@
+{
+  "completed_at": "2026-08-26T18:49:41.430340+00:00",
+  "config_hash": "31f7132c4288569b1d0ee8d66baf147521497c6bca43c72ffa21b76cdff41974",
+  "details": {
+    "cheap_python_smoke_seconds": 0.002778099966235459,
+    "known_measurement_reports": {
+      "augmentation": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\augment-five\\reports\\benchmark.json",
+      "feature_extraction": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\features-five\\reports\\benchmark.json",
+      "positive_generation": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\piper-five\\reports\\benchmark.json",
+      "training": "current"
+    },
+    "measured_augmentation": null,
+    "measured_feature_extraction": null,
+    "measured_positive_generation": null,
+    "measured_torch_cpu": {
+      "matrix_multiplications_per_second": 2898.550823331926,
+      "operations": 3,
+      "seconds": 0.0010349999647587538
+    },
+    "measured_training": {
+      "actual_training_steps": 20,
+      "benchmark_feature_shape": "[64, 16, 96] per class",
+      "benchmark_negative_features": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmarks\\train-twenty\\training\\benchmark_negative_features_benchmark_only.npy",
+      "benchmark_negative_warning": "Synthetic benchmark-only negatives are not suitable for a prototype or quality model.",
+      "benchmark_positive_features": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmarks\\train-twenty\\training\\benchmark_positive_features.npy",
+      "checkpoint_produced": false,
+      "model_output_bytes": 0,
+      "peak_python_tracemalloc_bytes": 266596626,
+      "positive_feature_input": "training\\wake\\cache\\benchmarks\\features-five\\feature_extraction\\positive_features.npy",
+      "seconds_per_step": 0.017398855002829804,
+      "speechbrain_lazy_redirects_removed": [
+        "speechbrain.pretrained",
+        "speechbrain.k2_integration",
+        "speechbrain.wordemb",
+        "speechbrain.lobes.models.huggingface_transformers",
+        "speechbrain.lobes.models.spacy",
+        "speechbrain.lobes.models.flair",
+        "speechbrain.nnet.loss.transducer_loss"
+      ],
+      "startup_and_dataset_seconds": 33.100850399932824,
+      "steps_per_second": 57.47504648078031,
+      "training_seconds": 0.3479771000565961
+    },
+    "note": "Stage projections are omitted until their explicit tiny benchmarks measure this machine. Prior report paths are references, not recreated measurements.",
+    "profiles": {
+      "prototype": {
+        "n_samples": 3000,
+        "projected_training_seconds_from_measured_throughput": 34.79771000565961,
+        "steps": 2000
+      },
+      "quality": {
+        "n_samples": 25000,
+        "projected_training_seconds_from_measured_throughput": 869.9427501414903,
+        "steps": 50000
+      }
+    },
+    "sample_count": 5,
+    "unmeasured_stages": []
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "inputs": [],
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\train-twenty\\reports\\benchmark.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype",
+  "run_id": "train-twenty",
+  "stage": "benchmark",
+  "state": "complete"
+}

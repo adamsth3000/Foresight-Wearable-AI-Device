@@ -1,0 +1,53 @@
+{
+  "completed_at": "2026-08-27T02:40:18.846118+00:00",
+  "config_hash": "b87c0a6ef5850f1e8bbab0342d646b5f1509df6086419546911dbcacc42c86a4",
+  "details": {
+    "checkpoint_sha256": "fda67b34c0a96779177d10b3f140ade5d467933cc32e3e568e62a0ad9184f9bb",
+    "input": [
+      "features",
+      [
+        "batch",
+        16,
+        96
+      ]
+    ],
+    "model_sha256": "a0842a9a5611f6b52bac844b3bd937c454dd851924d1906ecaa3d465822bc404",
+    "output": [
+      "score",
+      [
+        "batch",
+        1
+      ]
+    ],
+    "passed": true,
+    "sample_score": 0.9585145711898804
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "input_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\hey_foresight_checkpoint.pt": "3f36bedea5389788ee000e39279a734cb644fdcdd8a9a41b7ad9063ab9ae5714"
+  },
+  "inputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\hey_foresight_checkpoint.pt"
+  ],
+  "output_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\export_validation.json": "61bd5f115ad10b4b7b2d5fd232b3b30505496be3cc790bf9ecbd9a509d45ada0",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\hey_foresight.onnx": "1e21ac320361fae88463a43dcfe5326625c3f394d5b2eeea61d464e6768ca52d"
+  },
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\hey_foresight.onnx",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype-v3\\prototype-v3\\artifacts\\export_validation.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype-v3",
+  "run_id": "prototype-v3",
+  "stage": "export",
+  "state": "complete"
+}

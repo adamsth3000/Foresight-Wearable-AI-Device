@@ -7,10 +7,10 @@ import os
 import sys
 from pathlib import Path
 
-from .cli import run_capture_cli, run_cli
+from .cli import run_capture_cli, run_cli, run_hands_free_cli
 from .core.logging import configure_logging
 from .output import WindowsLabAudioOutput
-from .voice import FasterWhisperVoiceInputAdapter
+from .voice import FasterWhisperVoiceInputAdapter, OpenWakeWordInputAdapter
 
 
 def main() -> int:
@@ -53,14 +53,24 @@ def main() -> int:
             telemetry_host=options.telemetry_host,
             telemetry_port=options.telemetry_port,
         )
+
     audio_output = WindowsLabAudioOutput()
     speech_output = (
         audio_output if os.environ.get("FORESIGHT_LAB_SPEAK_RESPONSES") == "1" else None
     )
+    voice_input = FasterWhisperVoiceInputAdapter()
+    if "--hands-free" in sys.argv[1:]:
+        return run_hands_free_cli(
+            sys.stdout,
+            wake_input=OpenWakeWordInputAdapter(),
+            voice_input=voice_input,
+            cue_output=audio_output,
+            speech_output=speech_output,
+        )
     return run_cli(
         sys.stdin,
         sys.stdout,
-        voice_input=FasterWhisperVoiceInputAdapter(),
+        voice_input=voice_input,
         cue_output=audio_output,
         speech_output=speech_output,
     )

@@ -10,7 +10,14 @@ from foresight_device.sessions.service import SessionService
 
 from .intents import IntentType
 from .interpreter import DeterministicIntentInterpreter, IntentInterpreter
-from .models import AssistantResponse, CapturedContent, CapturedContentType, UserInteraction
+from .models import (
+    AssistantResponse,
+    CapturedContent,
+    CapturedContentType,
+    InteractionModality,
+    InteractionSource,
+    UserInteraction,
+)
 from .state import AssistantState, PendingInteractionContext
 
 
@@ -62,6 +69,19 @@ class InteractionService:
         """Return transient normalized captures without persisting them."""
 
         return tuple(self._captured_content)
+
+    def abandon_pending_interaction(self) -> None:
+        """End an incomplete Lab listening turn without leaving pending state behind."""
+
+        if self._pending_context is PendingInteractionContext.AWAITING_ADVENTURE_CONFIRMATION:
+            self._sessions.cancel_pending_session(
+                UserInteraction(
+                    content="",
+                    modality=InteractionModality.SYSTEM,
+                    source=InteractionSource.SIMULATED,
+                )
+            )
+        self._return_to_idle()
 
     def process(self, interaction: UserInteraction) -> InteractionOutcome:
         """Resolve one normalized interaction into state, session, or capture actions."""

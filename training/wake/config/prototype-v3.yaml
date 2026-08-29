@@ -1,0 +1,26 @@
+profile: prototype-v3
+extends: hey_foresight.base.yaml
+
+# Independent real utterances are the primary v3 improvement; field data is never included.
+n_samples: 1500
+n_samples_val: 250
+real_positive_train_samples: 100
+real_positive_validation_samples: 20
+real_positive_held_out_samples: 0
+real_positive_augmentation_variants: 3
+real_positive_train_oversample: 3
+positive_train_samples: 2700
+positive_validation_samples: 330
+
+augmentation_rounds: 1
+tts_batch_size: 10
+augmentation_batch_size: 8
+steps: 2000
+
+negative_train_samples: 3000
+negative_validation_samples: 500
+ambient_fallback_clips: 24
+
+quality_assets:
+  use_fma: false
+  use_acav100m_features: false

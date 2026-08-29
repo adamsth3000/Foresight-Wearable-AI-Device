@@ -1,0 +1,38 @@
+{
+  "sample_count": 5,
+  "cheap_python_smoke_seconds": 0.0027282999362796545,
+  "measured_torch_cpu": {
+    "operations": 3,
+    "seconds": 0.005362199968658388,
+    "matrix_multiplications_per_second": 559.4718618355806
+  },
+  "measured_positive_generation": null,
+  "measured_augmentation": {
+    "input_clips": 5,
+    "output_clips": 5,
+    "total_augmentation_seconds": 9.705134800053202,
+    "clips_per_second": 0.5151911954868047,
+    "seconds_per_clip": 1.9410269600106402,
+    "peak_python_tracemalloc_bytes": 42084796,
+    "background_asset": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmark_assets\\tiny_augmentation\\synthetic_ambient_noise.wav",
+    "rir_asset": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmark_assets\\tiny_augmentation\\synthetic_small_room_rir.wav"
+  },
+  "unmeasured_stages": [
+    "augmentation is unmeasured until the explicit tiny local pass runs",
+    "feature extraction requires prepared clips and negative audio",
+    "training requires prepared feature arrays"
+  ],
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "projected_augmentation_seconds_from_measured_throughput": 5823.080880031921
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "projected_augmentation_seconds_from_measured_throughput": 48525.67400026601
+    }
+  },
+  "note": "Generation and augmentation projections are omitted until their explicit tiny benchmarks measure this machine. No historical throughput is presented as a measurement."
+}

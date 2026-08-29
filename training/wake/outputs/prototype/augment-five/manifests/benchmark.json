@@ -1,0 +1,60 @@
+{
+  "completed_at": "2026-08-26T18:13:46.789391+00:00",
+  "config_hash": "31f7132c4288569b1d0ee8d66baf147521497c6bca43c72ffa21b76cdff41974",
+  "details": {
+    "cheap_python_smoke_seconds": 0.0027282999362796545,
+    "measured_augmentation": {
+      "background_asset": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmark_assets\\tiny_augmentation\\synthetic_ambient_noise.wav",
+      "clips_per_second": 0.5151911954868047,
+      "input_clips": 5,
+      "output_clips": 5,
+      "peak_python_tracemalloc_bytes": 42084796,
+      "rir_asset": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmark_assets\\tiny_augmentation\\synthetic_small_room_rir.wav",
+      "seconds_per_clip": 1.9410269600106402,
+      "total_augmentation_seconds": 9.705134800053202
+    },
+    "measured_positive_generation": null,
+    "measured_torch_cpu": {
+      "matrix_multiplications_per_second": 559.4718618355806,
+      "operations": 3,
+      "seconds": 0.005362199968658388
+    },
+    "note": "Generation and augmentation projections are omitted until their explicit tiny benchmarks measure this machine. No historical throughput is presented as a measurement.",
+    "profiles": {
+      "prototype": {
+        "n_samples": 3000,
+        "projected_augmentation_seconds_from_measured_throughput": 5823.080880031921,
+        "steps": 2000
+      },
+      "quality": {
+        "n_samples": 25000,
+        "projected_augmentation_seconds_from_measured_throughput": 48525.67400026601,
+        "steps": 50000
+      }
+    },
+    "sample_count": 5,
+    "unmeasured_stages": [
+      "augmentation is unmeasured until the explicit tiny local pass runs",
+      "feature extraction requires prepared clips and negative audio",
+      "training requires prepared feature arrays"
+    ]
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "inputs": [],
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\augment-five\\reports\\benchmark.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype",
+  "run_id": "augment-five",
+  "stage": "benchmark",
+  "state": "complete"
+}

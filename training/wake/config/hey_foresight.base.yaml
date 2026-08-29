@@ -1,0 +1,6 @@
+model_name: hey_foresight
+
+target_phrase:
+  - hey foresight
+
+custom_negative_phrases: []

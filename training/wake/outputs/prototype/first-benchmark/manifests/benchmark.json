@@ -1,0 +1,39 @@
+{
+  "completed_at": "2026-08-26T17:22:51.022418+00:00",
+  "config_hash": "31f7132c4288569b1d0ee8d66baf147521497c6bca43c72ffa21b76cdff41974",
+  "details": {
+    "cheap_python_smoke_seconds": 0.0027612000703811646,
+    "note": "Install the separate training environment to measure real generation, augmentation, feature, and training throughput.",
+    "profiles": {
+      "prototype": {
+        "estimated_generation_seconds_at_4_clips_per_second": 750.0,
+        "n_samples": 3000,
+        "steps": 2000
+      },
+      "quality": {
+        "estimated_generation_seconds_at_4_clips_per_second": 6250.0,
+        "n_samples": 25000,
+        "steps": 50000
+      }
+    },
+    "sample_count": 5
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "inputs": [],
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\first-benchmark\\reports\\benchmark.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": null
+  },
+  "profile": "prototype",
+  "run_id": "first-benchmark",
+  "stage": "benchmark",
+  "state": "complete"
+}

@@ -1,0 +1,18 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.2",
+  "cpu_count": 8,
+  "available_memory_bytes": 2345156608,
+  "nvidia_cuda_available": false,
+  "onnxruntime_providers": [
+    "AzureExecutionProvider",
+    "CPUExecutionProvider"
+  ],
+  "disk_free_bytes": 826749030400,
+  "packages": {
+    "openwakeword": null,
+    "onnxruntime": "1.29.0",
+    "torch": null
+  },
+  "suitability": "CPU prototype stages are supported; quality training needs Linux/NVIDIA CUDA."
+}

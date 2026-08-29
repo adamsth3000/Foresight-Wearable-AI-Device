@@ -1,0 +1,483 @@
+{
+  "records": [
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_001.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07917970418930054
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_002.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07891452312469482
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_003.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07895341515541077
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_004.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07976600527763367
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_005.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.08007735013961792
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_006.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07920601963996887
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_007.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07934963703155518
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_008.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.079262375831604
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_009.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07919910550117493
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_010.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07876560091972351
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_011.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07919058203697205
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_012.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07905265688896179
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_013.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07911145687103271
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_014.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07875227928161621
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_015.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07892343401908875
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_016.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07899302244186401
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_017.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07872816920280457
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_018.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.0786806046962738
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_019.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07907173037528992
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_020.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07965344190597534
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_021.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07912313938140869
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_022.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07907596230506897
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_023.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.079103022813797
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_024.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.07960686087608337
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\positive\\positive_025.wav",
+      "category": "positive",
+      "positive": true,
+      "score": 0.08025401830673218
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_001.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07887965440750122
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_002.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07924112677574158
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_003.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07891058921813965
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_004.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07871004939079285
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_005.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07885175943374634
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_006.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07984235882759094
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_007.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07910564541816711
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_008.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.0795142650604248
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_009.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.08012828230857849
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_010.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07991766929626465
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_011.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07959532737731934
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_012.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07963618636131287
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_013.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.08013221621513367
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_014.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07957449555397034
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_015.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07895222306251526
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_016.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07925918698310852
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_017.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.0791671872138977
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_018.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07921719551086426
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_019.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.0799233615398407
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ordinary_speech\\ordinary_speech_020.wav",
+      "category": "ordinary_speech",
+      "positive": false,
+      "score": 0.07886841893196106
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_001.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.08011052012443542
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_002.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.0796394944190979
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_003.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07868877053260803
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_004.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07953515648841858
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_005.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07956200838088989
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_006.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.08001002669334412
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_007.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07961699366569519
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_008.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07991024851799011
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_009.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.07949912548065186
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\ambient\\ambient_010.wav",
+      "category": "ambient",
+      "positive": false,
+      "score": 0.0789913535118103
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_001.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07940030097961426
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_002.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07958289980888367
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_003.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07935371994972229
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_004.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07927143573760986
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_005.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07921022176742554
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_006.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07903885841369629
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_007.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07955542206764221
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_008.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.0794227123260498
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_009.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.0792040228843689
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\tv_background\\tv_background_010.wav",
+      "category": "tv_background",
+      "positive": false,
+      "score": 0.07881367206573486
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_001.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07951915264129639
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_002.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07940083742141724
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_003.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07914876937866211
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_004.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07915377616882324
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_005.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07985419034957886
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_006.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.0792296826839447
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_007.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07986938953399658
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_008.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07938691973686218
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_009.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.07904917001724243
+    },
+    {
+      "path": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\data\\evaluation\\noise\\noise_010.wav",
+      "category": "noise",
+      "positive": false,
+      "score": 0.079621821641922
+    }
+  ],
+  "onnx_sha256": "7d5daae3e4fe8d520dcb8b4683bb5d6129b599eda13218e1a417c7059b163da0",
+  "export_manifest_sha256": "02acea96bbe69d6de1c9095199cd46d70b64e6b877c6150d853e9e49ec87ffa6",
+  "positive_count": 25,
+  "negative_count": 50,
+  "false_negatives_at_0.5": 25,
+  "false_activations_at_0.5": 0,
+  "threshold_sweep": {
+    "0.4": {
+      "recall": 0.0,
+      "false_activations": 0
+    },
+    "0.45": {
+      "recall": 0.0,
+      "false_activations": 0
+    },
+    "0.5": {
+      "recall": 0.0,
+      "false_activations": 0
+    },
+    "0.55": {
+      "recall": 0.0,
+      "false_activations": 0
+    },
+    "0.6": {
+      "recall": 0.0,
+      "false_activations": 0
+    }
+  },
+  "recommended_threshold": "manual review required"
+}

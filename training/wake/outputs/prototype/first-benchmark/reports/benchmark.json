@@ -1,0 +1,17 @@
+{
+  "sample_count": 5,
+  "cheap_python_smoke_seconds": 0.0027612000703811646,
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "estimated_generation_seconds_at_4_clips_per_second": 750.0
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "estimated_generation_seconds_at_4_clips_per_second": 6250.0
+    }
+  },
+  "note": "Install the separate training environment to measure real generation, augmentation, feature, and training throughput."
+}

@@ -1,0 +1,6 @@
+{
+  "librispeech_test_clean": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\downloads\\LibriSpeech\\test-clean",
+  "archive_sha256": "39fde525e59672dc6d1551919b1478f724438a95aa55f874b576be21967e6c23",
+  "ambient_source": "synthetic-fallback-weaker",
+  "ambient_count": 24
+}

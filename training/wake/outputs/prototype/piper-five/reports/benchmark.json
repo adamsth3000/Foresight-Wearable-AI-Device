@@ -1,0 +1,34 @@
+{
+  "sample_count": 5,
+  "cheap_python_smoke_seconds": 0.0027462999569252133,
+  "measured_torch_cpu": {
+    "operations": 3,
+    "seconds": 0.0024377000518143177,
+    "matrix_multiplications_per_second": 1230.6682267029435
+  },
+  "measured_positive_generation": {
+    "checkpoint_sha256": "5258f21adf77c29248d9a89d51ca9492f6e75a498140584dcbed0edcab81960a",
+    "total_generation_seconds": 8.332406900008209,
+    "clips_generated": 5,
+    "clips_per_second": 0.6000667106157614,
+    "seconds_per_clip": 1.6664813800016418
+  },
+  "unmeasured_stages": [
+    "augmentation requires prepared clips and reviewed background assets",
+    "feature extraction requires prepared clips and negative audio",
+    "training requires prepared feature arrays"
+  ],
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "projected_generation_seconds_from_measured_throughput": 4999.444140004925
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "projected_generation_seconds_from_measured_throughput": 41662.034500041045
+    }
+  },
+  "note": "Positive-generation projections are omitted until the explicit tiny benchmark measures this machine. No historical throughput is presented as a measurement."
+}

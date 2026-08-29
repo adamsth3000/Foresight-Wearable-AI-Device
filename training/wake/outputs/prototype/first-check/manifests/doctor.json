@@ -1,0 +1,40 @@
+{
+  "completed_at": "2026-08-26T16:56:43.876465+00:00",
+  "config_hash": "31f7132c4288569b1d0ee8d66baf147521497c6bca43c72ffa21b76cdff41974",
+  "details": {
+    "available_memory_bytes": 2345156608,
+    "cpu_count": 8,
+    "disk_free_bytes": 826749030400,
+    "nvidia_cuda_available": false,
+    "onnxruntime_providers": [
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ],
+    "os": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "onnxruntime": "1.29.0",
+      "openwakeword": null,
+      "torch": null
+    },
+    "python": "3.14.2",
+    "suitability": "CPU prototype stages are supported; quality training needs Linux/NVIDIA CUDA."
+  },
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.2 (tags/v3.14.2:df79316, Dec  5 2025, 17:18:21) [MSC v.1944 64 bit (AMD64)]"
+  },
+  "inputs": [],
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\first-check\\reports\\doctor.json"
+  ],
+  "packages": {
+    "datasets": null,
+    "onnxruntime": "1.29.0",
+    "openwakeword": null,
+    "torch": null
+  },
+  "profile": "prototype",
+  "run_id": "first-check",
+  "stage": "doctor",
+  "state": "complete"
+}

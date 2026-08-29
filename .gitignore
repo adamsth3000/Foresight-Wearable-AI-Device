@@ -180,6 +180,34 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Developer-provided wake-word models
+*.onnx
+
+# Local wake-model training artifacts and reference material
+training/wake/reference/*.ipynb
+training/wake/data/**/*.wav
+training/wake/data/field_evaluation/**
+!training/wake/data/field_evaluation/.gitkeep
+!training/wake/data/field_evaluation/*/.gitkeep
+training/wake/data/real_positive_v3/**
+!training/wake/data/real_positive_v3/.gitkeep
+!training/wake/data/real_positive_v3/*/.gitkeep
+training/wake/cache/*
+!training/wake/cache/.gitkeep
+!training/wake/cache/*/.gitkeep
+training/wake/outputs/**/artifacts/
+training/wake/outputs/**/checkpoints/
+training/wake/outputs/**/*.wav
+training/wake/outputs/**/*.npy
+training/wake/outputs/**/*.pt
+training/wake/outputs/**/*.onnx
+training/wake/outputs/**/*.onnx.data
+training/wake/outputs/**/*.zip
+training/wake/outputs/**/*.tmp
+models/wake/*.onnx
+models/wake/*.onnx.data
+.venv-training/
+
 # Android Studio and Gradle build outputs
 .gradle/
 platforms/android/**/build/

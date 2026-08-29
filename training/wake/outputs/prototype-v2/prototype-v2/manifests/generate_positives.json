@@ -1,0 +1,29 @@
+{
+  "completed_at": "2026-08-26T22:04:12.917026+00:00",
+  "config_hash": "f75c9fd08b031d3d2372f06cab90f58753c5b539d0523c2580d41d92209c9f56",
+  "details": {},
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "input_hashes": {},
+  "inputs": [],
+  "output_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\positives\\prototype-v2\\prototype-v2\\train": "43a86233b3bdc148f3f50f298ee9d669ae7b6ad30143dbd0696f9931e2ea84b7",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\positives\\prototype-v2\\prototype-v2\\validation": "a271dd596c90e84d29f0b87e3bbe723ac0e4c71f471e730ce3b491b840c33892"
+  },
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\positives\\prototype-v2\\prototype-v2\\train",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\positives\\prototype-v2\\prototype-v2\\validation"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype-v2",
+  "run_id": "prototype-v2",
+  "stage": "generate_positives",
+  "state": "complete"
+}

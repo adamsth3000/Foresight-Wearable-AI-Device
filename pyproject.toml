@@ -29,6 +29,15 @@ voice = [
 audio = [
   "pyttsx3>=2.99",
 ]
+perception = [
+  "Pillow>=10.0.0",
+  "torch>=2.7.0",
+  "transformers>=4.50.0",
+]
+wake = [
+  "openwakeword>=0.6.0",
+  "sounddevice>=0.5.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/foresight_device"]

@@ -17,4 +17,4 @@ Over time this phase may support structured real-world event capture, adventure 
 This phase validates that Foresight can support both live use and later replay or analysis without becoming trapped in a single runtime mode.
 
 ## Current Implemented State
-This phase is not implemented in code yet. The repository currently documents it as a planned workflow stage only.
+Phase 1A has physically validated an Android development gateway that publishes H.264/AAC media to a local MediaMTX endpoint over RTSP/TCP while the phone app is backgrounded. Phase 1B implements a source-neutral local FFmpeg ingest, rolling segment buffer, and manual event-promotion path. Phase 1B has automated coverage but remains pending a physical event-window test; GPS, sensors, GoPro, automated triggers, and replay tooling remain planned.

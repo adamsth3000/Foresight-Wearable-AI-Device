@@ -1,0 +1,65 @@
+{
+  "completed_at": "2026-08-27T01:32:12.758768+00:00",
+  "config_hash": "b87c0a6ef5850f1e8bbab0342d646b5f1509df6086419546911dbcacc42c86a4",
+  "details": {
+    "ambient_source": "synthetic fallback (weaker)",
+    "ordinary_speech_source": "LibriSpeech test-clean",
+    "source_hashes": {
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\prototype_rir.wav": "4dfa8341cf05dcdbf5ac28f31a7fb53874fbe800e0b2e01e3a01ed2aaf63cf42",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_000.wav": "c8d55ebb49d814704adcf06af17e1039f7fe19c1a27bda745ca22e3083d72211",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_001.wav": "a0f2c7ddce5064f82b0ca6c101bda09e5385e7e302eb0e1241dc99653e79c700",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_002.wav": "9515a140674b96aa0cfb9413270964684030933cbdfb42c8db6a50c181cc7841",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_003.wav": "fb02bd235dcf2cb8fa23af14161de13165c5d58e2b6db222346e6639f88a7829",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_004.wav": "d4cd0a72fa013f2dfcfed2c963fa1b7316469be8a93c06324d8868babf53c110",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_005.wav": "224a218dc9dc5c44f731857b10e6540189247a1f3759917929a2a1277da3c59b",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_006.wav": "7f4b1e2775ae9b78ab1b365de2f5df2f867579749896d47c24b6732d670113a1",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_007.wav": "418c316f2ba5b73015b9433c49b122fe27d270dddfbeabfeb1df8a5850b0f806",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_008.wav": "962a24281cee6e00702daeb13b568d533a82fba139764d611ef4af2e8520f0b3",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_009.wav": "b30875112748324f4284f8b61f5e9d3a70a50345e699090aaba3358ad218eb30",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_010.wav": "f1076e7560578378151d600cf4826324a531c3d22c22ea0c3b7b98becd7f9446",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_011.wav": "5451b46035a626d72ae096b5525d3fedc9ae95b332da7c51a338e518329c704f",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_012.wav": "112076db13e327569abfdba16402cb46d22a75382f4ce524c7428f2f76eb5ab6",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_013.wav": "bbaeeaaac9bd6d290c70dc675b31ea4ad0a90a48feea820794dec3600cd55bfc",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_014.wav": "5b110cc19878162ab313acf69ba13cb1c5bc82fdcfdaa4ee26af0f7915518467",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_015.wav": "7e2c4544b7e164568d85bb4e1f4e9a1cca8dc5af46cc3cc2c4a5d046d3705663",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_016.wav": "580d5f3f8d672c720f61442cac53117a49844e4cac7ce0a19d1d7e7374356932",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_017.wav": "6a218d2f1e5f187c458880f8d2f9aa7f91db3ad4a264fb930fa8b59c67ce4136",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_018.wav": "96667b7c03cb917950bab3c4de21dddca1e7681066d0ac777fa54cbe83210964",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_019.wav": "c57a5d4a49a1d30428b9443029be716bae8b919ca7fea46700d0cceb86af73ce",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_020.wav": "5b34063623c499ca4cb3e5c17661feffdda32465626879dc74adebfa7d985be5",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_021.wav": "9c3c10ba13805659d9ad763a6bbab698d39e2002823a13ae016a89efea04f296",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_022.wav": "f2f2bfb2efaee51fcd78af90b85e805e9b4c1f6d61f199052f1421982112b9d4",
+      "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\prototype_assets\\prototype-v3\\synthetic_ambient_023.wav": "cc0030145ee0780f5c8c9bfee87284a8c2d10e59142f8d40b77f1e4de4c2a5cc"
+    }
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "input_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\downloads\\LibriSpeech\\test-clean\\1089\\134686\\1089-134686-0000.flac": "ba7da5ffed73fa6b09bfc7bfaaa32997ca4cc27f8e4c310f5f052322fb83a111"
+  },
+  "inputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\downloads\\LibriSpeech\\test-clean\\1089\\134686\\1089-134686-0000.flac"
+  ],
+  "output_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\source_manifest.json": "e0d5773e4d5f1f462be0369aee95b04bd680943a7ef17e7a34aab4a12dabbdcb",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\train": "6a44a70b9007f27fa56dfb2bc65bf192b9a12b9cb8528ecc787d55718948cbb1",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\validation": "fc8017b2cd46634e54ffbbc06592460da7135e8022315d86c4ef99d443ee9d8e"
+  },
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\train",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\validation",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\negatives\\prototype-v3\\prototype-v3\\source_manifest.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype-v3",
+  "run_id": "prototype-v3",
+  "stage": "prepare_negatives",
+  "state": "complete"
+}

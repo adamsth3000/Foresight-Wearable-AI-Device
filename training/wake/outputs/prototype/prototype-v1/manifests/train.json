@@ -1,0 +1,49 @@
+{
+  "completed_at": "2026-08-26T20:08:05.023076+00:00",
+  "config_hash": "28398e68e23daf9098fb3055c84b571347c5ef2dead86e3c599c54cc7ade43f2",
+  "details": {
+    "input_hashes": {
+      "negative_train.npy": "dcf3b5997d951bb8aa82e97b5a2b26aaa7ae29629daf0e47ef60a4238066d05e",
+      "positive_train.npy": "64f2448a8f78d73f0221cac949994dd794e0359f5cdef63931db19fd4b61fd97"
+    },
+    "seconds": 57.41438750002999,
+    "speechbrain_redirects_removed": [
+      "speechbrain.pretrained",
+      "speechbrain.k2_integration",
+      "speechbrain.wordemb",
+      "speechbrain.lobes.models.huggingface_transformers",
+      "speechbrain.lobes.models.spacy",
+      "speechbrain.lobes.models.flair",
+      "speechbrain.nnet.loss.transducer_loss"
+    ],
+    "steps": 2000
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "input_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\features\\prototype\\prototype-v1\\negative_train.npy": "fb919a6170018744543a51f1c59c5f119f62625cb3581cb51c3d9b3a73a46fcc",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\features\\prototype\\prototype-v1\\positive_train.npy": "ca62977846f8146d49650ba5af648fc3afa4b0fd438b57defc52116319a0eec3"
+  },
+  "inputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\features\\prototype\\prototype-v1\\positive_train.npy",
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\features\\prototype\\prototype-v1\\negative_train.npy"
+  ],
+  "output_hashes": {
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\prototype-v1\\artifacts\\hey_foresight_checkpoint.pt": "1b01e8e36ebb32135805154b52fb32632651221e571d67c969e3d076c11b2c70"
+  },
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\prototype-v1\\artifacts\\hey_foresight_checkpoint.pt"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype",
+  "run_id": "prototype-v1",
+  "stage": "train",
+  "state": "complete"
+}

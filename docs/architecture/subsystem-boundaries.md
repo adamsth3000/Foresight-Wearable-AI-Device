@@ -1,7 +1,7 @@
 # Subsystem Boundaries
 
 ## Current Implemented State
-The repository contains small `interaction`, `sessions`, optional `voice`, and optional `output` packages. The `voice` package returns text transcripts, while `output` emits cues or speech after a normal assistant response; wake handling, intent interpretation, context, and sessions remain in `interaction` and `sessions`.
+The repository contains small `interaction`, `sessions`, optional `voice`, and optional `output` packages. The `voice` package includes separate microphone-to-transcript and wake-input adapters. A wake adapter emits only a wake event, which the CLI translates into the canonical core wake interaction; it does not produce commands or intents. Output emits cues or speech after a normal assistant response; intent interpretation, context, and sessions remain in `interaction` and `sessions`.
 
 ## Planned Logical Subsystems
 
@@ -30,7 +30,8 @@ Implemented Lab cue and optional speech-output interfaces. Future adapters may t
 - Core intelligence should not depend directly on a specific camera, phone, GoPro, or wearable device.
 - Core intelligence should not require a display implementation to function.
 - Device-specific integrations should translate external inputs into stable internal representations.
-- Voice adapters must transcribe one utterance without making wake, intent, context, or session decisions.
+- Voice command adapters must transcribe one utterance without making wake, intent, context, or session decisions.
+- Wake adapters must emit a minimal wake event and release microphone ownership before a voice command adapter starts.
 - Output adapters must consume user-facing assistant responses without making interaction or session decisions.
 - Display-specific integrations should consume stable internal state rather than drive core decision-making.
 - Capture and replay workflows should be designed so both live and post-processed sessions can feed the same higher-level systems over time.

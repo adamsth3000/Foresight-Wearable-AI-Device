@@ -1,0 +1,25 @@
+profile: prototype-v2
+extends: hey_foresight.base.yaml
+
+# Preserve the v1 synthetic set and add a small, traceable real-audio anchor.
+n_samples: 3000
+n_samples_val: 500
+real_positive_train_samples: 15
+real_positive_validation_samples: 5
+real_positive_held_out_samples: 5
+real_positive_augmentation_variants: 5
+positive_train_samples: 3090
+positive_validation_samples: 530
+
+augmentation_rounds: 1
+tts_batch_size: 10
+augmentation_batch_size: 8
+steps: 2000
+
+negative_train_samples: 3000
+negative_validation_samples: 500
+ambient_fallback_clips: 24
+
+quality_assets:
+  use_fma: false
+  use_acav100m_features: false

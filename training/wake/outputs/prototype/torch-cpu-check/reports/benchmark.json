@@ -1,0 +1,28 @@
+{
+  "sample_count": 3,
+  "cheap_python_smoke_seconds": 0.0017719999887049198,
+  "measured_torch_cpu": {
+    "operations": 3,
+    "seconds": 0.014547199942171574,
+    "matrix_multiplications_per_second": 206.2252537894359
+  },
+  "measured_positive_generation": null,
+  "unmeasured_stages": [
+    "augmentation requires prepared clips and reviewed background assets",
+    "feature extraction requires prepared clips and negative audio",
+    "training requires prepared feature arrays"
+  ],
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "historical_generation_seconds_at_4_clips_per_second": 750.0
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "historical_generation_seconds_at_4_clips_per_second": 6250.0
+    }
+  },
+  "note": "Historical 4 clips/second values are fallback estimates, not local measurements."
+}

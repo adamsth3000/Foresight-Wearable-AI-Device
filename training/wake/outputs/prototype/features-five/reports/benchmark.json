@@ -1,0 +1,45 @@
+{
+  "sample_count": 5,
+  "cheap_python_smoke_seconds": 0.0030309000285342336,
+  "measured_torch_cpu": {
+    "operations": 3,
+    "seconds": 0.003275799914263189,
+    "matrix_multiplications_per_second": 915.806849782758
+  },
+  "measured_positive_generation": null,
+  "measured_augmentation": null,
+  "measured_feature_extraction": {
+    "input_clips": 5,
+    "feature_arrays": 1,
+    "feature_shape": [
+      5,
+      16,
+      96
+    ],
+    "total_extraction_seconds": 0.8227659000549465,
+    "clips_per_second": 6.077062746117804,
+    "seconds_per_clip": 0.16455318001098931,
+    "output_bytes": 30848,
+    "peak_python_tracemalloc_bytes": 1008663,
+    "feature_output": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmarks\\features-five\\feature_extraction\\positive_features.npy",
+    "melspectrogram_model": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\models\\openwakeword-v0.5.1\\melspectrogram.onnx",
+    "embedding_model": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\models\\openwakeword-v0.5.1\\embedding_model.onnx"
+  },
+  "unmeasured_stages": [
+    "augmentation is unmeasured until the explicit tiny local pass runs",
+    "training requires prepared feature arrays"
+  ],
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "projected_feature_extraction_seconds_from_measured_throughput": 493.6595400329679
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "projected_feature_extraction_seconds_from_measured_throughput": 4113.829500274733
+    }
+  },
+  "note": "Generation, augmentation, and feature-extraction projections are omitted until their explicit tiny benchmarks measure this machine. No historical throughput is presented as a measurement."
+}

@@ -1,0 +1,56 @@
+{
+  "sample_count": 5,
+  "cheap_python_smoke_seconds": 0.002778099966235459,
+  "measured_torch_cpu": {
+    "operations": 3,
+    "seconds": 0.0010349999647587538,
+    "matrix_multiplications_per_second": 2898.550823331926
+  },
+  "measured_positive_generation": null,
+  "measured_augmentation": null,
+  "measured_feature_extraction": null,
+  "measured_training": {
+    "actual_training_steps": 20,
+    "startup_and_dataset_seconds": 33.100850399932824,
+    "training_seconds": 0.3479771000565961,
+    "seconds_per_step": 0.017398855002829804,
+    "steps_per_second": 57.47504648078031,
+    "peak_python_tracemalloc_bytes": 266596626,
+    "positive_feature_input": "training\\wake\\cache\\benchmarks\\features-five\\feature_extraction\\positive_features.npy",
+    "benchmark_positive_features": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmarks\\train-twenty\\training\\benchmark_positive_features.npy",
+    "benchmark_negative_features": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\cache\\benchmarks\\train-twenty\\training\\benchmark_negative_features_benchmark_only.npy",
+    "benchmark_feature_shape": "[64, 16, 96] per class",
+    "speechbrain_lazy_redirects_removed": [
+      "speechbrain.pretrained",
+      "speechbrain.k2_integration",
+      "speechbrain.wordemb",
+      "speechbrain.lobes.models.huggingface_transformers",
+      "speechbrain.lobes.models.spacy",
+      "speechbrain.lobes.models.flair",
+      "speechbrain.nnet.loss.transducer_loss"
+    ],
+    "benchmark_negative_warning": "Synthetic benchmark-only negatives are not suitable for a prototype or quality model.",
+    "checkpoint_produced": false,
+    "model_output_bytes": 0
+  },
+  "known_measurement_reports": {
+    "positive_generation": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\piper-five\\reports\\benchmark.json",
+    "augmentation": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\augment-five\\reports\\benchmark.json",
+    "feature_extraction": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\features-five\\reports\\benchmark.json",
+    "training": "current"
+  },
+  "unmeasured_stages": [],
+  "profiles": {
+    "prototype": {
+      "n_samples": 3000,
+      "steps": 2000,
+      "projected_training_seconds_from_measured_throughput": 34.79771000565961
+    },
+    "quality": {
+      "n_samples": 25000,
+      "steps": 50000,
+      "projected_training_seconds_from_measured_throughput": 869.9427501414903
+    }
+  },
+  "note": "Stage projections are omitted until their explicit tiny benchmarks measure this machine. Prior report paths are references, not recreated measurements."
+}

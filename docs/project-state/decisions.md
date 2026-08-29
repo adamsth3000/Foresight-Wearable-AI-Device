@@ -69,3 +69,29 @@
 ### Use Windows Cues And Optional Local TTS For The Lab
 - Decision: Use `winsound` for the synchronous wake cue and optional lazy `pyttsx3` SAPI5 speech output.
 - Rationale: The cue has no extra dependency, while TTS remains optional and cannot prevent text-mode operation when unavailable.
+
+### Keep Hands-Free Wake Detection Behind A Narrow Adapter
+- Decision: Use an optional `WakeInputAdapter` with an openWakeWord-based Lab implementation that emits a minimal wake event for a developer-provided fixed `Hey Foresight` ONNX model.
+- Rationale: The CLI can translate the event into the existing canonical wake interaction while the openWakeWord runtime, model file, and microphone frames stay outside interaction, intent, session, and output code.
+
+### Use Sequential Microphone Ownership In Hands-Free Lab Mode
+- Decision: The wake adapter releases its microphone stream before the existing fixed-duration voice adapter captures commands or follow-ups.
+- Rationale: This avoids microphone contention and keeps the Lab workflow bounded rather than becoming continuous general transcription.
+
+### Separate Wake-Model Training From Runtime Code
+- Decision: Keep wake-model configuration and training stages under `training/wake`, separate from `src/foresight_device` and the main application environment.
+- Rationale: The Windows CPU prototype and later Linux/NVIDIA quality training need heavier, changing dependencies without destabilizing the Foresight runtime.
+
+### Use Explicit, Resumable Wake-Training Stages
+- Decision: Record configuration hashes, package versions, input/output paths, and completion state in small per-stage manifests.
+- Rationale: Generated data and quality assets are expensive, so stages must be inspectable and safely resumable without an orchestration framework.
+
+## 2026-08-27
+
+### Keep Phone Transport Separate From Python Capture Policy
+- Decision: Treat the Android gateway as an RTSP source and normalize it into a source-neutral Python `MediaSource` descriptor.
+- Rationale: Future cameras, GoPro, replay files, or wearable sources can use the same capture pipeline without Android types entering Python policy or event models.
+
+### Use Stream-Copy Segments For The Phase 1B Rolling Buffer
+- Decision: Use FFmpeg RTSP/TCP stream copy into short local fMP4 segments, then promote selected segments through FFmpeg concat stream copy.
+- Rationale: This preserves the validated H.264/AAC stream while minimizing laptop CPU use. Timing is documented as segment-boundary approximate until physical validation proves the behavior.

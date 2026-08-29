@@ -1,0 +1,19 @@
+profile: prototype
+extends: hey_foresight.base.yaml
+
+n_samples: 3000
+n_samples_val: 500
+augmentation_rounds: 1
+tts_batch_size: 10
+augmentation_batch_size: 8
+steps: 2000
+
+# First local prototype only. Speech clips come from LibriSpeech test-clean;
+# ambient clips prefer developer recordings and use a clearly marked fallback.
+negative_train_samples: 3000
+negative_validation_samples: 500
+ambient_fallback_clips: 24
+
+quality_assets:
+  use_fma: false
+  use_acav100m_features: false

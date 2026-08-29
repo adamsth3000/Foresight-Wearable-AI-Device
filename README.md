@@ -8,10 +8,9 @@ This repository is currently an early development foundation for the long-term F
 The following are intentionally not implemented yet:
 - AI functionality
 - Computer vision
-- Spoken assistant responses or actual audio playback
 - Gesture recognition
 - GPS or GoPro integration
-- Hardware or AR integrations
+- AI, perception, and AR integrations
 
 ## Long-Term Vision
 
@@ -71,7 +70,7 @@ Supported commands:
 - `exit`
 - `quit`
 
-This simulator currently includes `Foresight Lab v0.4`: deterministic wake, interaction-context, session flows, and an optional microphone-to-transcript adapter. Type `Hey Foresight` to receive the simulated `[BEEP]` acknowledgement, then try an adventure command, `Take a note`, or `Add something to my shopping list`.
+This simulator currently includes `Foresight Lab v0.6`: deterministic interaction, session, context, voice, cue, and optional hands-free wake experiments. Type `Hey Foresight` to receive the `[BEEP]` acknowledgement, then try an adventure command, `Take a note`, or `Add something to my shopping list`.
 
 To use optional Lab voice input, install it in a compatible environment. Python 3.11 is the recommended initial voice runtime because the current Python 3.14 environment may not support all native speech-to-text dependencies reliably:
 
@@ -79,13 +78,37 @@ To use optional Lab voice input, install it in a compatible environment. Python 
 
 `.venv-voice\Scripts\Activate.ps1`
 
-`python -m pip install -e ".[dev,voice,audio]"`
+`python -m pip install -e ".[dev,voice,audio,wake]"`
 
 Start the Lab with `python -m foresight_device`, then type `voice` to capture one fixed-duration utterance. The first use may provision the local `base.en` model. The `voice` command is a Lab development control, not part of Foresight's interaction vocabulary.
 
 The Lab now plays a local Windows wake tone in addition to the terminal `[BEEP]` marker. Optional TTS uses `pyttsx3` only when `FORESIGHT_LAB_SPEAK_RESPONSES=1` is set before starting the Lab. If TTS is unavailable, terminal output and the wake cue continue where supported.
 
-Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide continuous listening, production wake-word detection, streaming audio, phone or wearable audio integration, AI interpretation, or replay.
+For optional hands-free Lab wake listening, train or otherwise provide a custom openWakeWord `Hey Foresight` ONNX model, set `FORESIGHT_WAKE_MODEL_PATH` to that local file, then run:
+
+`python -m foresight_device --hands-free`
+
+The wake adapter owns the microphone only while waiting for the fixed phrase. After detection, it releases the microphone before the existing one-utterance voice adapter captures the command and any required follow-up. Press `Ctrl+C` to exit hands-free mode. The developer-provided `.onnx` model is not committed. `WakeInputAdapter` is the stable Foresight boundary, so the Lab implementation and model can be replaced later without changing the interaction core.
+
+Use the upstream openWakeWord custom-model training notebook or its detailed training workflow to create a model specifically for `Hey Foresight`; do not download an arbitrary community model. The resulting local ONNX model must be compatible with openWakeWord's `Model(wakeword_models=[...])` interface. Training and model evaluation are separate Lab work and are not implemented in this repository.
+
+Notes and shopping items are normalized transient in-memory captures only; they are not persisted or connected to a real list system. The simulator does not provide continuous full-speech transcription, production wake-word monitoring, streaming audio, phone or wearable audio integration, AI interpretation, or replay.
+
+## Wake-Model Training
+
+`training/wake/` is a separate Windows/VS Code training workspace for a future developer-provided `hey_foresight` ONNX wake model. It uses its own dependencies, profiles, and resumable manifests; no model is trained or deployed in this repository baseline. See `training/wake/README.md` before creating the separate training environment.
+
+## Phase 1 Capture
+
+Phase 1A has physically validated the native Android gateway: the Galaxy S24 FE publishes rear-camera H.264 (1280x720) and AAC (44.1 kHz stereo) to MediaMTX over RTSP/TCP, including while the app is backgrounded or the screen is off. RootEncoder `prepareVideo` uses named arguments because its parameter order is `width`, `height`, `bitrate`, then `fps`.
+
+Phase 1B implements a local, source-neutral Python RTSP ingest and manual-event pipeline, but has **not** yet passed a physical event-window test. Install FFmpeg separately, start the Android gateway and MediaMTX, then run:
+
+```powershell
+python -m foresight_device --capture --source-uri rtsp://LAPTOP_LAN_IP:8555/foresight-phone
+```
+
+Wait at least 30 seconds, type `event`, wait at least 15 seconds, then type `stop`. The MVP stream-copies two-second fMP4 segments into `data/capture/buffer/` and promotes a stream-copy-concatenated `event.mp4` plus a SHA-256 manifest under `data/capture/events/<event_id>/`. Segment boundaries provide approximate rather than frame-accurate event timing. See `config/capture.yaml` for defaults; the CLI URI and FFmpeg path remain machine-configurable.
 
 ## Documentation
 

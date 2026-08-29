@@ -1,0 +1,56 @@
+{
+  "completed_at": "2026-08-26T18:07:39.284829+00:00",
+  "config_hash": "31f7132c4288569b1d0ee8d66baf147521497c6bca43c72ffa21b76cdff41974",
+  "details": {
+    "cheap_python_smoke_seconds": 0.0027462999569252133,
+    "measured_positive_generation": {
+      "checkpoint_sha256": "5258f21adf77c29248d9a89d51ca9492f6e75a498140584dcbed0edcab81960a",
+      "clips_generated": 5,
+      "clips_per_second": 0.6000667106157614,
+      "seconds_per_clip": 1.6664813800016418,
+      "total_generation_seconds": 8.332406900008209
+    },
+    "measured_torch_cpu": {
+      "matrix_multiplications_per_second": 1230.6682267029435,
+      "operations": 3,
+      "seconds": 0.0024377000518143177
+    },
+    "note": "Positive-generation projections are omitted until the explicit tiny benchmark measures this machine. No historical throughput is presented as a measurement.",
+    "profiles": {
+      "prototype": {
+        "n_samples": 3000,
+        "projected_generation_seconds_from_measured_throughput": 4999.444140004925,
+        "steps": 2000
+      },
+      "quality": {
+        "n_samples": 25000,
+        "projected_generation_seconds_from_measured_throughput": 41662.034500041045,
+        "steps": 50000
+      }
+    },
+    "sample_count": 5,
+    "unmeasured_stages": [
+      "augmentation requires prepared clips and reviewed background assets",
+      "feature extraction requires prepared clips and negative audio",
+      "training requires prepared feature arrays"
+    ]
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "inputs": [],
+  "outputs": [
+    "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\training\\wake\\outputs\\prototype\\piper-five\\reports\\benchmark.json"
+  ],
+  "packages": {
+    "datasets": "2.21.0",
+    "onnxruntime": "1.29.0",
+    "openwakeword": "0.6.0",
+    "torch": "2.7.1+cpu"
+  },
+  "profile": "prototype",
+  "run_id": "piper-five",
+  "stage": "benchmark",
+  "state": "complete"
+}

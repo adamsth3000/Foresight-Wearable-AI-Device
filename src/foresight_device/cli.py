@@ -37,7 +37,13 @@ from foresight_device.output import (
 )
 from foresight_device.sessions import SessionRecord
 from foresight_device.sessions.service import SessionStateError
-from foresight_device.voice import VoiceInputAdapter, VoiceInputUnavailableError
+from foresight_device.voice import (
+    VoiceInputAdapter,
+    VoiceInputUnavailableError,
+    WakeEvent,
+    WakeInputAdapter,
+    WakeInputUnavailableError,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +72,12 @@ def build_voice_interaction(transcript: str) -> UserInteraction:
         modality=InteractionModality.VOICE,
         source=InteractionSource.MICROPHONE,
     )
+
+
+def build_wake_interaction(_: WakeEvent) -> UserInteraction:
+    """Translate a hardware wake event into the canonical core wake interaction."""
+
+    return build_voice_interaction("Hey Foresight")
 
 
 def render_transcript(transcript: str | None) -> str:
@@ -248,6 +260,22 @@ def _run_bounded_voice_flow(
         _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
 
 
+def _run_post_wake_voice_flow(
+    output_stream: TextIO,
+    service: InteractionService,
+    voice_input: VoiceInputAdapter,
+    cue_output: AudioCueOutput | None,
+    speech_output: SpeechOutput | None,
+) -> None:
+    """Capture a command and bounded follow-up after an external wake event."""
+
+    _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
+    if service.pending_context is not PendingInteractionContext.NONE:
+        _render_voice_capture(output_stream, service, voice_input, cue_output, speech_output)
+    if service.assistant_state is not AssistantState.IDLE:
+        service.abandon_pending_interaction()
+
+
 def _render_voice_capture(
     output_stream: TextIO,
     service: InteractionService,
@@ -318,6 +346,59 @@ def run_cli(
 
         if result.should_exit:
             return 0
+
+
+def run_hands_free_cli(
+    output_stream: TextIO,
+    wake_input: WakeInputAdapter,
+    service: InteractionService | None = None,
+    voice_input: VoiceInputAdapter | None = None,
+    cue_output: AudioCueOutput | None = None,
+    speech_output: SpeechOutput | None = None,
+) -> int:
+    """Run sequential Lab wake detection and the established bounded voice flow."""
+
+    if voice_input is None:
+        output_stream.write("Voice input unavailable: hands-free mode requires the voice extra.\n")
+        output_stream.flush()
+        return 1
+
+    interaction_service = service or InteractionService()
+    output_stream.write("Foresight Lab v0.6 - Hands-Free\n")
+    try:
+        while True:
+            output_stream.write('Waiting for "Hey Foresight"...\n')
+            output_stream.flush()
+            try:
+                wake_event = wake_input.wait_for_wake()
+            except WakeInputUnavailableError as exc:
+                output_stream.write(f"Wake input unavailable: {exc}\n")
+                output_stream.flush()
+                return 1
+
+            result = _process_interaction(
+                build_wake_interaction(wake_event),
+                interaction_service,
+                cue_output,
+                speech_output,
+            )
+            for line in result.lines:
+                output_stream.write(f"{line}\n")
+            output_stream.flush()
+            _run_post_wake_voice_flow(
+                output_stream,
+                interaction_service,
+                voice_input,
+                cue_output,
+                speech_output,
+            )
+    except KeyboardInterrupt:
+        output_stream.write("\nExiting Foresight Lab.\n")
+        output_stream.flush()
+        return 0
+    finally:
+        wake_input.close()
+
 
 def run_capture_cli(
     input_stream: TextIO,

@@ -1,14 +1,14 @@
 # Architecture Overview
 
 ## Current Implemented State
-The repository currently provides development scaffolding only:
+The repository currently provides a small Lab scaffold and bounded interaction experiments:
 - contributor and coding-agent guidance
 - architecture and planning documentation
 - Python project structure under `src/foresight_device`
 - environment and logging foundations
-- scaffold-level tests
+- normalized interaction, session, terminal, voice, wake, and output adapter tests
 
-No Foresight product functionality is implemented yet.
+The implemented Lab scope is intentionally narrow: deterministic interactions, bounded microphone captures, optional local wake detection, and replaceable output. Broader Foresight product capabilities remain planned.
 
 ## Planned Architecture
 Foresight is intended to become a long-term wearable AI assistant platform that evolves through four major stages:
