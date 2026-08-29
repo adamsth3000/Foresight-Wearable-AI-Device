@@ -105,3 +105,13 @@ def test_filter_graph_is_timestamp_limited_and_preserves_video_and_audio_mapping
     assert "-map" in command and "0:a?" in command
     assert "-c:a" in command and "copy" in command
     assert "-vf" not in command
+
+
+@pytest.mark.unit
+def test_track_identity_is_compact_label_metadata_not_a_visual_state() -> None:
+    item = OverlayTimeline((_observation(),), track_ids={"obs-1": "T003"}).at(
+        1.0, width=100, height=100
+    )[0]
+
+    assert item.display_label == "tree · T003"
+    assert item.state == OverlayState.DETECTED

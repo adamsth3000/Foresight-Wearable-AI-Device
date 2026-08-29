@@ -74,14 +74,20 @@ class EventEditor:
         self._tk.Button(annotation_controls, text="Relabel...", command=self._show_relabel).pack(
             side="left"
         )
-        self._relabel_controls = self._tk.LabelFrame(self._root, text="Correct selected label")
+        self._relabel_controls = self._tk.LabelFrame(self._root, text="Relabel selected object")
         self._relabel_prompt = self._tk.Label(self._relabel_controls, anchor="w")
         self._relabel_prompt.pack(side="left")
         self._relabel = self._ttk.Combobox(self._relabel_controls, state="normal")
         self._relabel.pack(side="left", fill="x", expand=True)
         self._tk.Button(
-            self._relabel_controls, text="Save Relabel", command=self._confirm_relabel
+            self._relabel_controls,
+            text="Relabel Observation",
+            command=self._confirm_observation_relabel,
         ).pack(side="left")
+        self._track_relabel_button = self._tk.Button(
+            self._relabel_controls, text="Relabel Track", command=self._confirm_track_relabel
+        )
+        self._track_relabel_button.pack(side="left")
         self._tk.Button(self._relabel_controls, text="Cancel", command=self._hide_relabel).pack(
             side="left"
         )
@@ -140,18 +146,35 @@ class EventEditor:
         if selected is None:
             self._status_label.configure(text="select an object before relabeling")
             return
-        self._relabel_prompt.configure(text=f"Original: {selected.label}  New label:")
+        track_id = self._controller.selected_track_id
+        scope = f" Track: {track_id}." if track_id is not None else " Untracked object."
+        self._relabel_prompt.configure(
+            text=f"Model: {selected.label}.{scope} New label:"
+        )
         self._relabel.configure(values=list(self._controller.known_labels), state="normal")
-        self._relabel.set(selected.label)
+        self._relabel.set(self._controller.selected_display_label or selected.label)
+        self._track_relabel_button.configure(state="normal" if track_id is not None else "disabled")
         self._relabel_controls.pack(fill="x", before=self._selection_label)
         self._relabel.focus_set()
 
     def _hide_relabel(self) -> None:
         self._relabel_controls.pack_forget()
 
-    def _confirm_relabel(self) -> None:
+    def _confirm_observation_relabel(self) -> None:
         self._annotate(AnnotationAction.RELABEL, corrected_label=self._relabel.get().strip())
         self._hide_relabel()
+
+    def _confirm_track_relabel(self) -> None:
+        try:
+            annotation = self._controller.relabel_selected_track(self._relabel.get().strip())
+        except ValueError as exc:
+            self._status_label.configure(text=str(exc))
+            return
+        self._status_label.configure(
+            text=f"Saved {annotation.action.value}: {annotation.annotation_id}"
+        )
+        self._hide_relabel()
+        self._render()
 
     def _annotate(self, action: AnnotationAction, *, corrected_label: str | None = None) -> None:
         try:

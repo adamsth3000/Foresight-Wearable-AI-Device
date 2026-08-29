@@ -9,6 +9,8 @@ import pytest
 
 from foresight_device.annotation.models import AnnotationAction
 from foresight_device.annotation.store import AnnotationStore
+from foresight_device.annotation.track_store import TrackAnnotationStore
+from foresight_device.identity import SELF_ACTOR
 from foresight_device.perception.models import NormalizedBoundingBox, VisualObservation
 from foresight_device.visualization.editor_controller import EditorController, VideoViewport
 from foresight_device.visualization.interaction import (
@@ -55,6 +57,25 @@ def _controller(tmp_path: Path, observations: tuple[VisualObservation, ...]) -> 
             tmp_path / "event_annotations.json",
             event_id="event-1",
             observation_ids={item.observation_id for item in observations},
+        ),
+    )
+
+
+def _tracked_controller(
+    tmp_path: Path, observations: tuple[VisualObservation, ...], track_ids: dict[str, str]
+) -> EditorController:
+    return EditorController(
+        observations,
+        AnnotationStore(
+            tmp_path / "event_annotations.json",
+            event_id="event-1",
+            observation_ids={item.observation_id for item in observations},
+        ),
+        track_ids,
+        TrackAnnotationStore(
+            tmp_path / "event_track_annotations.json",
+            event_id="event-1",
+            track_ids=set(track_ids.values()),
         ),
     )
 
@@ -245,6 +266,74 @@ def test_timeline_scrubbing_hides_stale_observations(tmp_path: Path) -> None:
         for item in controller.overlays_at(6.0, width=100, height=100)
     ] == ["second"]
     assert controller.overlays_at(4.0, width=100, height=100) == ()
+
+
+@pytest.mark.unit
+def test_tracked_selection_stays_red_across_timestamps_without_persistence(tmp_path: Path) -> None:
+    first = _observation(observation_id="first", timestamp=3.0)
+    later = _observation(observation_id="later", timestamp=6.0)
+    other = _observation(observation_id="other", timestamp=6.0, label="chair")
+    controller = _tracked_controller(
+        tmp_path,
+        (first, later, other),
+        {"first": "T004", "later": "T004", "other": "T005"},
+    )
+
+    controller.click(20, 30, timestamp_seconds=3.0, viewport=VideoViewport(100, 100, 100, 100))
+
+    assert controller.interaction.selected_observation_id == "first"
+    assert controller.selected_track_id == "T004"
+    states = {
+        item.observation.observation_id: item.state
+        for item in controller.overlays_at(6.0, width=100, height=100)
+    }
+    assert states == {"later": OverlayState.MANUALLY_SELECTED, "other": OverlayState.DETECTED}
+    assert not (tmp_path / "event_track_annotations.json").exists()
+
+
+@pytest.mark.unit
+def test_track_relabel_is_event_local_persistent_and_preserves_model_output(tmp_path: Path) -> None:
+    first = _observation(observation_id="first", timestamp=3.0, label="person")
+    later = _observation(observation_id="later", timestamp=6.0, label="person")
+    controller = _tracked_controller(tmp_path, (first, later), {"first": "T004", "later": "T004"})
+    controller.click(20, 30, timestamp_seconds=3.0, viewport=VideoViewport(100, 100, 100, 100))
+
+    annotation = controller.relabel_selected_track("mom")
+
+    assert annotation.original_track_label == "person"
+    assert annotation.corrected_label == "mom"
+    assert annotation.provenance == "human"
+    assert first.label == "person" and later.label == "person"
+    assert [
+        item.display_label for item in controller.overlays_at(6.0, width=100, height=100)
+    ] == ["mom · T004"]
+    reloaded = _tracked_controller(
+        tmp_path, (first, later), {"first": "T004", "later": "T004"}
+    )
+    assert [item.display_label for item in reloaded.overlays_at(6.0, width=100, height=100)] == [
+        "mom · T004"
+    ]
+    assert SELF_ACTOR.actor_id == "self"
+
+
+@pytest.mark.unit
+def test_observation_relabel_overrides_track_label_and_arbitrary_labels_are_ordinary(
+    tmp_path: Path,
+) -> None:
+    first = _observation(observation_id="first", timestamp=3.0, label="chair")
+    later = _observation(observation_id="later", timestamp=6.0, label="chair")
+    controller = _tracked_controller(tmp_path, (first, later), {"first": "T002", "later": "T002"})
+    controller.click(20, 30, timestamp_seconds=3.0, viewport=VideoViewport(100, 100, 100, 100))
+    controller.relabel_selected_track("office chair")
+    controller.annotate_selected(AnnotationAction.RELABEL, corrected_label="delivery chair")
+
+    assert [item.display_label for item in controller.overlays_at(3.0, width=100, height=100)] == [
+        "delivery chair · T002"
+    ]
+    assert [item.display_label for item in controller.overlays_at(6.0, width=100, height=100)] == [
+        "office chair · T002"
+    ]
+    assert first.label == "chair" and later.label == "chair"
 
 
 @pytest.mark.unit

@@ -58,6 +58,8 @@ class OverlayTimeline:
         *,
         association_window_seconds: float = 0.5,
         interaction_state: InteractionState | None = None,
+        track_ids: dict[str, str] | None = None,
+        track_labels: dict[str, str] | None = None,
     ) -> None:
         if association_window_seconds < 0:
             raise ValueError("association window must be non-negative")
@@ -65,6 +67,8 @@ class OverlayTimeline:
         self._annotations = _latest_annotations(annotations)
         self._association_window_seconds = association_window_seconds
         self._interaction_state = interaction_state or InteractionState()
+        self._track_ids = track_ids or {}
+        self._track_labels = track_labels or {}
 
     def at(self, timestamp_seconds: float, *, width: int, height: int) -> tuple[OverlayItem, ...]:
         """Return a deterministic, time-local overlay set for one decoded frame."""
@@ -85,9 +89,13 @@ class OverlayTimeline:
                     self._interaction_state,
                     timestamp_seconds,
                     self._association_window_seconds,
+                    self._track_ids.get(observation.observation_id),
                 ),
                 display_label=_label_for(
-                    observation, self._annotations.get(observation.observation_id)
+                    observation,
+                    self._annotations.get(observation.observation_id),
+                    self._track_ids.get(observation.observation_id),
+                    self._track_labels.get(self._track_ids.get(observation.observation_id, "")),
                 ),
             )
             for observation in sorted(
@@ -124,9 +132,13 @@ class OverlayTimeline:
                     self._interaction_state,
                     observation.media_timestamp_seconds,
                     self._association_window_seconds,
+                    self._track_ids.get(observation.observation_id),
                 ),
                 display_label=_label_for(
-                    observation, self._annotations.get(observation.observation_id)
+                    observation,
+                    self._annotations.get(observation.observation_id),
+                    self._track_ids.get(observation.observation_id),
+                    self._track_labels.get(self._track_ids.get(observation.observation_id, "")),
                 ),
             )
             for observation in sorted(
@@ -157,8 +169,12 @@ def _state_for(
     interaction: InteractionState,
     timestamp_seconds: float,
     association_window_seconds: float,
+    track_id: str | None,
 ) -> OverlayState:
-    if observation.observation_id == interaction.selected_observation_id:
+    if (
+        observation.observation_id == interaction.selected_observation_id
+        or (track_id is not None and track_id == interaction.selected_track_id)
+    ):
         return OverlayState.MANUALLY_SELECTED
     gesture_is_current = (
         interaction.gesture_debug is not None
@@ -186,7 +202,13 @@ def _state_for(
     return OverlayState.DETECTED
 
 
-def _label_for(observation: VisualObservation, annotation: HumanAnnotation | None) -> str:
+def _label_for(
+    observation: VisualObservation,
+    annotation: HumanAnnotation | None,
+    track_id: str | None,
+    track_label: str | None,
+) -> str:
+    label = track_label or observation.label
     if annotation is not None and annotation.action == AnnotationAction.RELABEL:
-        return annotation.corrected_label or observation.label
-    return observation.label
+        label = annotation.corrected_label or label
+    return f"{label} · {track_id}" if track_id else label

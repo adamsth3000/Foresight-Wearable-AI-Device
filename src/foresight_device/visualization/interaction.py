@@ -155,6 +155,7 @@ class InteractionState:
     """Non-persistent editor and gesture state keyed by normalized observation identity."""
 
     selected_observation_id: str | None = None
+    selected_track_id: str | None = None
     gesture_debug: GestureAssociationDebug | None = None
 
     @property
@@ -173,12 +174,13 @@ class InteractionState:
             return frozenset()
         return self.gesture_debug.candidate_observation_ids
 
-    def select(self, observation_id: str | None) -> InteractionState:
-        return InteractionState(observation_id, self.gesture_debug)
+    def select(self, observation_id: str | None, track_id: str | None = None) -> InteractionState:
+        return InteractionState(observation_id, track_id, self.gesture_debug)
 
     def set_gesture_debug(self, gesture_debug: GestureAssociationDebug | None) -> InteractionState:
         return InteractionState(
             self.selected_observation_id,
+            self.selected_track_id,
             gesture_debug,
         )
 
@@ -192,5 +194,6 @@ class InteractionState:
         )
         return InteractionState(
             self.selected_observation_id,
+            self.selected_track_id,
             replace(debug, resolved_target_observation_id=observation_id),
         )

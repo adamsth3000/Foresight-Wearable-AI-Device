@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from foresight_device.annotation.models import AnnotationAction, HumanAnnotation
 from foresight_device.annotation.store import AnnotationStore
+from foresight_device.annotation.track_models import HumanTrackAnnotation
+from foresight_device.annotation.track_store import TrackAnnotationStore, latest_track_labels
 from foresight_device.perception.models import VisualObservation
 
 from .interaction import (
@@ -53,11 +55,15 @@ class EditorController:
         self,
         observations: tuple[VisualObservation, ...],
         store: AnnotationStore,
+        track_ids: dict[str, str] | None = None,
+        track_store: TrackAnnotationStore | None = None,
         *,
         association_window_seconds: float = 0.5,
     ) -> None:
         self._observations = observations
         self._store = store
+        self._track_ids = track_ids or {}
+        self._track_store = track_store
         self._association_window_seconds = association_window_seconds
         self._interaction = InteractionState()
         self._timeline = self._new_timeline()
@@ -77,6 +83,42 @@ class EditorController:
         """The current transient selection for visible editor controls."""
 
         return self._selected_observation()
+
+    @property
+    def selected_track_id(self) -> str | None:
+        """The transient selected derived track, distinct from a source observation."""
+
+        return self._interaction.selected_track_id
+
+    @property
+    def selected_display_label(self) -> str | None:
+        """Effective label for the selected observation under annotation precedence."""
+
+        selected = self._selected_observation()
+        if selected is None:
+            return None
+        return next(
+            (
+                item.display_label.rsplit(" · ", 1)[0]
+                for item in self._timeline.all(width=1, height=1)
+                if item.observation.observation_id == selected.observation_id
+            ),
+            selected.label,
+        )
+
+    def track_for_observation(self, observation_id: str) -> str | None:
+        """Return optional derived track identity without changing source observation identity."""
+
+        return self._track_ids.get(observation_id)
+
+    def observations_for_track(self, track_id: str) -> tuple[VisualObservation, ...]:
+        """Return source observations that belong to an optional derived track."""
+
+        return tuple(
+            item
+            for item in self._observations
+            if self._track_ids.get(item.observation_id) == track_id
+        )
 
     def overlays_at(
         self, timestamp_seconds: float, *, width: int, height: int
@@ -118,7 +160,9 @@ class EditorController:
                 item.observation.observation_id,
             ),
         ).observation
-        self._interaction = self._interaction.select(selected.observation_id)
+        self._interaction = self._interaction.select(
+            selected.observation_id, self._track_ids.get(selected.observation_id)
+        )
         self._timeline = self._new_timeline()
         return selected
 
@@ -173,6 +217,23 @@ class EditorController:
         self._timeline = self._new_timeline()
         return annotation
 
+    def relabel_selected_track(self, corrected_label: str) -> HumanTrackAnnotation:
+        """Persist an event-local human label for the selected derived track only."""
+
+        selected = self._selected_observation()
+        track_id = self._interaction.selected_track_id
+        if selected is None or track_id is None or self._track_store is None:
+            raise ValueError("select a tracked object before relabeling its track")
+        if not corrected_label:
+            raise ValueError("track relabel requires a corrected label")
+        annotation = self._track_store.create_relabel(
+            track_id=track_id,
+            original_track_label=selected.label,
+            corrected_label=corrected_label,
+        )
+        self._timeline = self._new_timeline()
+        return annotation
+
     def _selected_observation(self) -> VisualObservation | None:
         return self._observation_by_id(self._interaction.selected_observation_id)
 
@@ -187,4 +248,10 @@ class EditorController:
             self._store.load(),
             association_window_seconds=self._association_window_seconds,
             interaction_state=self._interaction,
+            track_ids=self._track_ids,
+            track_labels=(
+                latest_track_labels(self._track_store.load())
+                if self._track_store is not None
+                else {}
+            ),
         )
