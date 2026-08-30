@@ -6,6 +6,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from foresight_device.perception.event_media import (
+    ArtifactMediaProvenance,
+    ArtifactMediaStaleError,
+    ResolvedEventMedia,
+    require_artifact_media_match,
+)
 from foresight_device.perception.models import NormalizedBoundingBox, VisualObservation
 
 
@@ -17,9 +23,12 @@ class PerceptionArtifactError(RuntimeError):
 class LoadedPerception:
     event_id: str
     observations: tuple[VisualObservation, ...]
+    media_provenance: ArtifactMediaProvenance | None = None
 
 
-def load_perception(path: Path) -> LoadedPerception:
+def load_perception(
+    path: Path, *, resolved_media: ResolvedEventMedia | None = None
+) -> LoadedPerception:
     """Load the Phase 1D JSON artifact without altering model evidence."""
 
     try:
@@ -31,8 +40,18 @@ def load_perception(path: Path) -> LoadedPerception:
     raw_observations = payload.get("observations")
     if not isinstance(raw_observations, list):
         raise PerceptionArtifactError("perception artifact observations must be a list")
+    provenance = _media_provenance(payload.get("media"))
+    if resolved_media is not None:
+        if provenance is None:
+            raise PerceptionArtifactError(
+                "perception artifact has no media provenance; rerun offline perception"
+            )
+        try:
+            require_artifact_media_match(resolved_media, provenance)
+        except ArtifactMediaStaleError as exc:
+            raise PerceptionArtifactError(str(exc)) from exc
     observations = tuple(_observation_from_dict(item) for item in raw_observations)
-    return LoadedPerception(payload["event_id"], observations)
+    return LoadedPerception(payload["event_id"], observations, provenance)
 
 
 def _observation_from_dict(value: object) -> VisualObservation:
@@ -72,3 +91,18 @@ def _optional_string(value: dict[object, object], key: str) -> str | None:
     if item is None or isinstance(item, str):
         return item
     raise ValueError(key)
+
+
+def _media_provenance(value: object) -> ArtifactMediaProvenance | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise PerceptionArtifactError("perception artifact media provenance must be an object")
+    filename = value.get("filename")
+    sha256 = value.get("sha256")
+    source = value.get("source")
+    if not isinstance(filename, str) or not filename or not isinstance(sha256, str) or not sha256:
+        raise PerceptionArtifactError("perception artifact media provenance is invalid")
+    if source is not None and (not isinstance(source, str) or not source):
+        raise PerceptionArtifactError("perception artifact media source is invalid")
+    return ArtifactMediaProvenance(sha256, filename, source)

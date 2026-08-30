@@ -87,8 +87,9 @@ class DetectorDetection:
 class VisualObservation:
     """Evidence emitted for a detected object in one event-media frame.
 
-    ``media_timestamp_seconds`` is a position in ``event.mp4``. It is intentionally
-    not an Android elapsed-realtime timestamp and carries no encoded-PTS clock mapping.
+    ``media_timestamp_seconds`` is a position in the exact event media named by the perception
+    artifact. It is intentionally not an Android elapsed-realtime timestamp and carries no
+    encoded-PTS clock mapping.
     """
 
     observation_id: str

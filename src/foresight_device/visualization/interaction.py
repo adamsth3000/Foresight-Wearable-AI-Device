@@ -47,6 +47,13 @@ class GestureRingPrimitive:
     center: NormalizedPoint
     radius_normalized: float
     label: str | None
+    gesture_event_id: str | None = None
+    gesture_type: str | None = None
+    start_timestamp_seconds: float | None = None
+    end_timestamp_seconds: float | None = None
+    peak_timestamp_seconds: float | None = None
+    hand_track_id: str | None = None
+    source_hand_observation_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

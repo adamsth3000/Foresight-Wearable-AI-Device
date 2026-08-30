@@ -6,10 +6,11 @@ import argparse
 from pathlib import Path
 
 from foresight_device.annotation.store import AnnotationStore
+from foresight_device.perception.event_media import EventMediaResolutionError, resolve_event_media
 
 from .ffmpeg_renderer import FfmpegOverlayRenderer
 from .overlay import OverlayTimeline
-from .perception_loader import load_perception
+from .perception_loader import PerceptionArtifactError, load_perception
 
 
 def main() -> int:
@@ -21,7 +22,11 @@ def main() -> int:
     parser.add_argument("--ffprobe", default="ffprobe")
     options = parser.parse_args()
     event_dir = options.data_root / "events" / options.event_id
-    perception = load_perception(event_dir / "event_perception.json")
+    try:
+        media = resolve_event_media(event_dir)
+        perception = load_perception(event_dir / "event_perception.json", resolved_media=media)
+    except (EventMediaResolutionError, PerceptionArtifactError) as exc:
+        parser.error(str(exc))
     store = AnnotationStore(
         event_dir / "event_annotations.json",
         event_id=perception.event_id,
@@ -33,7 +38,7 @@ def main() -> int:
         font_file=options.font_file,
     )
     renderer.render(
-        event_dir / "event.mp4",
+        media.path,
         event_dir / "event_perception_annotated.mp4",
         OverlayTimeline(perception.observations, store.load()),
     )

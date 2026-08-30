@@ -1,6 +1,7 @@
 """Recorded-event overlay models and rendering adapters."""
 
 from .editor_controller import EditorController, VideoViewport
+from .gesture_timeline import GestureTimeline
 from .interaction import (
     GestureAssociationDebug,
     GestureCandidate,
@@ -16,6 +17,7 @@ __all__ = [
     "EditorController",
     "GestureAssociationDebug",
     "GestureCandidate",
+    "GestureTimeline",
     "InteractionState",
     "OverlayState",
     "OverlayTimeline",

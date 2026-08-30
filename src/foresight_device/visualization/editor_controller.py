@@ -10,6 +10,7 @@ from foresight_device.annotation.track_models import HumanTrackAnnotation
 from foresight_device.annotation.track_store import TrackAnnotationStore, latest_track_labels
 from foresight_device.perception.models import VisualObservation
 
+from .gesture_timeline import GestureTimeline
 from .interaction import (
     GestureAssociationDebug,
     GestureRingPrimitive,
@@ -57,6 +58,7 @@ class EditorController:
         store: AnnotationStore,
         track_ids: dict[str, str] | None = None,
         track_store: TrackAnnotationStore | None = None,
+        gesture_timeline: GestureTimeline | None = None,
         *,
         association_window_seconds: float = 0.5,
     ) -> None:
@@ -64,6 +66,7 @@ class EditorController:
         self._store = store
         self._track_ids = track_ids or {}
         self._track_store = track_store
+        self._gesture_timeline = gesture_timeline
         self._association_window_seconds = association_window_seconds
         self._interaction = InteractionState()
         self._timeline = self._new_timeline()
@@ -183,13 +186,16 @@ class EditorController:
     ) -> tuple[GestureRingPrimitive | RelationshipArrowPrimitive, ...]:
         """Expose transient action and relationship primitives for a future renderer."""
 
+        primitives: list[GestureRingPrimitive | RelationshipArrowPrimitive] = []
+        if self._gesture_timeline is not None:
+            primitives.extend(self._gesture_timeline.at(timestamp_seconds))
         debug = self._interaction.gesture_debug
         if (
             debug is None
             or abs(debug.media_timestamp_seconds - timestamp_seconds)
             > self._association_window_seconds
         ):
-            return ()
+            return tuple(primitives)
         centers = {
             item.observation_id: NormalizedPoint(
                 (item.bounding_box.x_min + item.bounding_box.x_max) / 2,
@@ -197,7 +203,8 @@ class EditorController:
             )
             for item in self._observations
         }
-        return debug.overlay_primitives(centers)
+        primitives.extend(debug.overlay_primitives(centers))
+        return tuple(primitives)
 
     def annotate_selected(
         self, action: AnnotationAction, *, corrected_label: str | None = None

@@ -40,7 +40,7 @@ def main() -> int:
         "--data-root",
         type=Path,
         default=Path("data/capture"),
-        help="Capture data root containing events/<event_id>/event.mp4.",
+        help="Capture data root containing promoted events/<event_id>/ directories.",
     )
     parser.add_argument("--sample-interval", type=float, default=1.0)
     parser.add_argument("--prompt", action="append", dest="prompts")

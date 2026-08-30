@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -10,6 +9,7 @@ from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from .detector import Detector
+from .event_media import EventMediaResolutionError, resolve_event_media
 from .frame_sampler import FrameSampler
 from .models import EventPerceptionResult, VisualObservation
 
@@ -42,10 +42,11 @@ class EventPerceptionProcessor:
             raise ValueError("at least one detector prompt is required")
         manifest = _load_manifest(event_dir / "manifest.json")
         event_id = _event_id(event_dir, manifest)
-        media_path = event_dir / "event.mp4"
-        if not media_path.is_file():
-            raise EventPerceptionError(f"event media was not found: {media_path}")
-        media_sha256 = _media_sha256(media_path, manifest)
+        try:
+            media = resolve_event_media(event_dir)
+        except EventMediaResolutionError as exc:
+            raise EventPerceptionError(str(exc)) from exc
+        media_path = media.path
         observations: list[VisualObservation] = []
         frames_processed = 0
         for frame in self._sampler.sample(media_path, sample_interval_seconds):
@@ -70,7 +71,7 @@ class EventPerceptionProcessor:
                     VisualObservation(
                         observation_id=observation_id,
                         event_id=event_id,
-                        source_media_path=str(media_path),
+                        source_media_path=media.relative_path,
                         frame_index=frame.frame_index,
                         media_timestamp_seconds=frame.media_timestamp_seconds,
                         label=detection.label,
@@ -97,7 +98,11 @@ class EventPerceptionProcessor:
         payload = {
             "schema_version": PERCEPTION_SCHEMA_VERSION,
             "event_id": event_id,
-            "media": {"filename": media_path.name, "sha256": media_sha256},
+            "media": {
+                "filename": media.relative_path,
+                "sha256": media.sha256,
+                "source": media.source,
+            },
             "processing": {
                 "created_at_utc": datetime.now(UTC).isoformat(),
                 "frame_sampling_interval_seconds": sample_interval_seconds,
@@ -105,7 +110,7 @@ class EventPerceptionProcessor:
                 "model": self._detector.model_identity,
                 "prompts": list(clean_prompts),
                 "timing_note": (
-                    "media_timestamp_seconds is an event.mp4 position, "
+                    "media_timestamp_seconds is relative to the exact selected event media, "
                     "not Android elapsedRealtimeNanos."
                 ),
             },
@@ -139,19 +144,6 @@ def _event_id(event_dir: Path, manifest: dict[str, object]) -> str:
     if not isinstance(event_id, str) or not event_id:
         raise EventPerceptionError("event manifest contains an invalid event_id")
     return event_id
-
-
-def _media_sha256(media_path: Path, manifest: dict[str, object]) -> str:
-    media = manifest.get("media")
-    if isinstance(media, dict):
-        checksum = media.get("sha256")
-        if isinstance(checksum, str) and checksum:
-            return checksum
-    digest = hashlib.sha256()
-    with media_path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _write_json_atomically(path: Path, payload: dict[str, object]) -> None:

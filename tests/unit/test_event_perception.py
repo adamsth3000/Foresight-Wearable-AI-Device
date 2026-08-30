@@ -25,9 +25,11 @@ class FakeSampler:
 
     def __init__(self, frames: Sequence[SampledFrame]) -> None:
         self.frames = frames
+        self.media_paths: list[Path] = []
 
     def sample(self, media_path: Path, interval_seconds: float) -> Iterator[SampledFrame]:
-        del media_path, interval_seconds
+        self.media_paths.append(media_path)
+        del interval_seconds
         yield from self.frames
 
 
@@ -47,7 +49,9 @@ class FakeDetector:
         return self.detections
 
 
-def _event_dir(tmp_path: Path, *, event_id: str = "event-123") -> tuple[Path, str]:
+def _event_dir(
+    tmp_path: Path, *, event_id: str = "c4426cce-1ac2-47d6-9e9f-0c8d5c9e0543"
+) -> tuple[Path, str]:
     event_dir = tmp_path / "events" / event_id
     event_dir.mkdir(parents=True)
     media = event_dir / "event.mp4"
@@ -73,7 +77,8 @@ def test_pipeline_writes_ordered_observations_with_manifest_provenance(tmp_path:
             DetectorDetection("car", 0.9, box, "car"),
         )
     )
-    processor = EventPerceptionProcessor(FakeSampler((_frame(1.0, 30), _frame(0.0, 0))), detector)
+    sampler = FakeSampler((_frame(1.0, 30), _frame(0.0, 0)))
+    processor = EventPerceptionProcessor(sampler, detector)
 
     result = processor.process(event_dir, prompts=("person", "car", "tree"))
     payload = json.loads(result.output_path.read_text(encoding="utf-8"))
@@ -81,7 +86,12 @@ def test_pipeline_writes_ordered_observations_with_manifest_provenance(tmp_path:
     assert result.frames_processed == 2
     assert detector.prompts == ("person", "car", "tree")
     assert payload["schema_version"] == 1
-    assert payload["media"] == {"filename": "event.mp4", "sha256": checksum}
+    assert payload["media"] == {
+        "filename": "event.mp4",
+        "sha256": checksum,
+        "source": "network_capture",
+    }
+    assert sampler.media_paths == [event_dir / "event.mp4"]
     assert [item["label"] for item in payload["observations"]] == ["car", "tree", "car", "tree"]
     assert [item["media_timestamp_seconds"] for item in payload["observations"]] == [
         0.0,
@@ -109,7 +119,7 @@ def test_empty_detector_result_and_rerun_replace_the_artifact(tmp_path: Path) ->
 
 @pytest.mark.unit
 def test_missing_media_is_rejected_without_creating_an_artifact(tmp_path: Path) -> None:
-    event_dir = tmp_path / "events" / "missing-media"
+    event_dir = tmp_path / "events" / "c4426cce-1ac2-47d6-9e9f-0c8d5c9e0543"
     event_dir.mkdir(parents=True)
     processor = EventPerceptionProcessor(FakeSampler(()), FakeDetector(()))
 
