@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -13,7 +14,7 @@ from pathlib import Path
 from foresight_device.core.logging import get_logger
 
 from .media_source import MediaSource
-from .models import CaptureEvent, MediaSegment
+from .models import CaptureEvent, EventMode, MediaSegment
 from .rolling_buffer import RollingBuffer
 from .telemetry import SessionTelemetryStore, copy_event_sensor_records
 
@@ -30,10 +31,20 @@ class _PendingEvent:
     requested_pre_seconds: float
     requested_post_seconds: float
     segments: list[MediaSegment]
+    event_mode: EventMode = EventMode.QUICK
+    bounded_end_utc: datetime | None = None
 
     @property
     def required_end_utc(self) -> datetime:
+        if self.event_mode == EventMode.BOUNDED:
+            if self.bounded_end_utc is None:
+                raise EventStateError("bounded event has not ended")
+            return self.bounded_end_utc
         return self.trigger_utc + timedelta(seconds=self.requested_post_seconds)
+
+
+class EventStateError(RuntimeError):
+    """A requested event transition is invalid for the authoritative capture state."""
 
 
 class EventService:
@@ -48,9 +59,10 @@ class EventService:
         *,
         pre_seconds: float = 30.0,
         post_seconds: float = 15.0,
+        bounded_finalization_timeout_seconds: float = 15.0,
         telemetry_store: SessionTelemetryStore | None = None,
     ) -> None:
-        if pre_seconds < 0 or post_seconds < 0:
+        if pre_seconds < 0 or post_seconds < 0 or bounded_finalization_timeout_seconds <= 0:
             raise ValueError("event durations cannot be negative")
         self._source = source
         self._rolling_buffer = rolling_buffer
@@ -59,14 +71,31 @@ class EventService:
         self._pre_seconds = pre_seconds
         self._post_seconds = post_seconds
         self._telemetry_store = telemetry_store
+        self._bounded_finalization_timeout_seconds = bounded_finalization_timeout_seconds
         self._pending: list[_PendingEvent] = []
+        self._bounded: _PendingEvent | None = None
         self._latest_capture_progress_utc: datetime | None = None
+        self._bounded_timeout_timer: threading.Timer | None = None
 
     @property
     def pending_count(self) -> int:
         """Return the number of events awaiting their requested post-roll."""
 
-        return len(self._pending)
+        return len(self._pending) + int(self._bounded is not None)
+
+    @property
+    def bounded_event_id(self) -> str | None:
+        return self._bounded.event_id if self._bounded is not None else None
+
+    @property
+    def bounded_event_state(self) -> str:
+        if self._bounded is None:
+            return "idle"
+        return (
+            "finalizing"
+            if self._bounded.bounded_end_utc is not None
+            else "recording_bounded_event"
+        )
 
     def trigger(
         self,
@@ -77,6 +106,8 @@ class EventService:
     ) -> str:
         """Snapshot pre-roll and wait for enough future segments to promote it."""
 
+        if self._bounded is not None:
+            raise EventStateError("quick event is unavailable while a bounded event is active")
         occurred_at = trigger_utc or datetime.now(UTC)
         monotonic_ns = (
             trigger_monotonic_ns if trigger_monotonic_ns is not None else time.monotonic_ns()
@@ -105,6 +136,48 @@ class EventService:
         )
         return event_id
 
+    def start_bounded(
+        self, *, start_utc: datetime | None = None, start_monotonic_ns: int | None = None
+    ) -> str:
+        if self._bounded is not None:
+            raise EventStateError("a bounded event is already active")
+        occurred_at = start_utc or datetime.now(UTC)
+        pending = _PendingEvent(
+            CaptureEvent.new_id(),
+            "manual_bounded",
+            occurred_at,
+            start_monotonic_ns if start_monotonic_ns is not None else time.monotonic_ns(),
+            0.0,
+            0.0,
+            list(self._rolling_buffer.select_pre_event(occurred_at, 0.0)),
+            EventMode.BOUNDED,
+        )
+        self._bounded = pending
+        LOGGER.info(
+            "bounded event started event_id=%s start_utc=%s",
+            pending.event_id,
+            occurred_at.isoformat(),
+        )
+        return pending.event_id
+
+    def end_bounded(self, *, end_utc: datetime | None = None) -> str:
+        pending = self._bounded
+        if pending is None:
+            raise EventStateError("no bounded event is active")
+        if pending.bounded_end_utc is not None:
+            raise EventStateError("bounded event is already finalizing")
+        pending.bounded_end_utc = end_utc or datetime.now(UTC)
+        if pending.bounded_end_utc < pending.trigger_utc:
+            raise EventStateError("bounded event cannot end before it starts")
+        self._select_bounded_segments(pending)
+        self._schedule_bounded_finalization_timeout(pending)
+        LOGGER.info(
+            "bounded event ending event_id=%s end_utc=%s",
+            pending.event_id,
+            pending.bounded_end_utc.isoformat(),
+        )
+        return pending.event_id
+
     def observe_segment(self, segment: MediaSegment) -> tuple[CaptureEvent, ...]:
         """Add post-roll media and finalize any event whose window is complete."""
 
@@ -126,9 +199,7 @@ class EventService:
             # Segment boundaries are filesystem-derived approximations and can have
             # small gaps. Capture progress past the requested end is sufficient as
             # long as the event already has real media overlapping its window.
-            progressed_through_requested_end = (
-                segment.ended_at_utc >= pending.required_end_utc
-            )
+            progressed_through_requested_end = segment.ended_at_utc >= pending.required_end_utc
             if progressed_through_requested_end and not pending.segments:
                 LOGGER.warning(
                     "capture event discarded because a source outage left no real media "
@@ -136,8 +207,7 @@ class EventService:
                     "requested_end_utc=%s",
                     pending.event_id,
                     (
-                        pending.trigger_utc
-                        - timedelta(seconds=pending.requested_pre_seconds)
+                        pending.trigger_utc - timedelta(seconds=pending.requested_pre_seconds)
                     ).isoformat(),
                     pending.required_end_utc.isoformat(),
                 )
@@ -164,6 +234,21 @@ class EventService:
             if ready_to_finalize:
                 completed.append(self._finalize(pending))
                 self._pending.remove(pending)
+        bounded = self._bounded
+        if bounded is not None:
+            self._append_bounded_segment(bounded, segment)
+            if (
+                bounded.bounded_end_utc is not None
+                and segment.ended_at_utc >= bounded.bounded_end_utc
+            ):
+                if not bounded.segments:
+                    LOGGER.warning(
+                        "bounded event discarded without media event_id=%s", bounded.event_id
+                    )
+                else:
+                    completed.append(self._finalize(bounded))
+                self._cancel_bounded_finalization_timeout()
+                self._bounded = None
         return tuple(completed)
 
     def abort_pending(self) -> int:
@@ -172,10 +257,89 @@ class EventService:
         count = len(self._pending)
         for pending in self._pending:
             self._rolling_buffer.release(tuple(pending.segments))
+        if self._bounded is not None:
+            self._cancel_bounded_finalization_timeout()
+            self._rolling_buffer.release(tuple(self._bounded.segments))
+            count += 1
+            self._bounded = None
         self._pending.clear()
         return count
 
-    def _finalize(self, pending: _PendingEvent) -> CaptureEvent:
+    def finalize_bounded_after_source_loss(self, event_id: str) -> CaptureEvent | None:
+        """Resolve a finalizing bounded event after its source cannot close another segment.
+
+        Existing closed segments are genuine media and may be promoted. No media is invented when
+        the source disappears before a usable segment exists.
+        """
+
+        pending = self._bounded
+        if (
+            pending is None
+            or pending.event_id != event_id
+            or pending.bounded_end_utc is None
+        ):
+            return None
+        self._cancel_bounded_finalization_timeout()
+        self._bounded = None
+        if not pending.segments:
+            LOGGER.error(
+                "bounded event failed after source loss without media "
+                "event_id=%s requested_end_utc=%s",
+                pending.event_id,
+                pending.required_end_utc.isoformat(),
+            )
+            return None
+        event = self._finalize(pending, source_terminated_early=True)
+        LOGGER.warning(
+            "bounded event promoted after source loss event_id=%s requested_end_utc=%s "
+            "actual_end_utc=%s",
+            event.event_id,
+            pending.required_end_utc.isoformat(),
+            event.actual_end_utc.isoformat(),
+        )
+        return event
+
+    def _schedule_bounded_finalization_timeout(self, pending: _PendingEvent) -> None:
+        self._cancel_bounded_finalization_timeout()
+        timer = threading.Timer(
+            self._bounded_finalization_timeout_seconds,
+            self._on_bounded_finalization_timeout,
+            args=(pending.event_id,),
+        )
+        timer.daemon = True
+        self._bounded_timeout_timer = timer
+        timer.start()
+
+    def _cancel_bounded_finalization_timeout(self) -> None:
+        if self._bounded_timeout_timer is not None:
+            self._bounded_timeout_timer.cancel()
+            self._bounded_timeout_timer = None
+
+    def _on_bounded_finalization_timeout(self, event_id: str) -> None:
+        event = self.finalize_bounded_after_source_loss(event_id)
+        if event is None:
+            LOGGER.error(
+                "bounded event finalization timed out without promotable media event_id=%s",
+                event_id,
+            )
+
+    def _select_bounded_segments(self, pending: _PendingEvent) -> None:
+        for segment in self._rolling_buffer.segments:
+            self._append_bounded_segment(pending, segment)
+
+    def _append_bounded_segment(self, pending: _PendingEvent, segment: MediaSegment) -> None:
+        end = pending.bounded_end_utc
+        if segment.ended_at_utc < pending.trigger_utc or (
+            end is not None and segment.started_at_utc > end
+        ):
+            return
+        if segment.path not in {existing.path for existing in pending.segments}:
+            pending.segments.append(segment)
+            self._rolling_buffer.promote((segment,))
+
+    def _finalize(
+        self, pending: _PendingEvent, *, source_terminated_early: bool = False
+    ) -> CaptureEvent:
         if not pending.segments:
             raise RuntimeError("A completed event has no media segments.")
         segments = tuple(
@@ -212,6 +376,12 @@ class EventService:
             created_at_utc=created_at,
             sensors_path=sensors_path,
             sensor_record_count=sensor_record_count,
+            event_mode=pending.event_mode,
+            bounded_start_utc=(
+                pending.trigger_utc if pending.event_mode == EventMode.BOUNDED else None
+            ),
+            bounded_end_utc=pending.bounded_end_utc,
+            source_terminated_early=source_terminated_early,
         )
         manifest_path.write_text(
             json.dumps(_manifest_payload(event), indent=2) + "\n",
@@ -237,18 +407,33 @@ def _sha256_file(path: Path) -> str:
 def _manifest_payload(event: CaptureEvent) -> dict[str, object]:
     source = event.source
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "event_id": event.event_id,
         "capture_session_id": source.capture_session_id,
         "source_id": source.source_id,
         "source_session_id": source.source_session_id,
         "trigger_type": event.trigger_type,
+        "event_mode": event.event_mode.value,
         "trigger_utc": event.trigger_utc.isoformat(),
         "trigger_monotonic_ns": event.trigger_monotonic_ns,
         "requested_pre_seconds": event.requested_pre_seconds,
         "requested_post_seconds": event.requested_post_seconds,
         "actual_preserved_start_utc": event.actual_start_utc.isoformat(),
         "actual_preserved_end_utc": event.actual_end_utc.isoformat(),
+        "bounded_event": (
+            {
+                "start_utc": event.bounded_start_utc.isoformat(),
+                "end_utc": event.bounded_end_utc.isoformat(),
+                "duration_seconds": (
+                    event.bounded_end_utc - event.bounded_start_utc
+                ).total_seconds(),
+                "source_terminated_early": event.source_terminated_early,
+            }
+            if event.event_mode == EventMode.BOUNDED
+            and event.bounded_start_utc is not None
+            and event.bounded_end_utc is not None
+            else None
+        ),
         "media": {"filename": event.media_path.name, "sha256": event.media_sha256},
         "sensors": (
             {

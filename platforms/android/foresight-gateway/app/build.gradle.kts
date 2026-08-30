@@ -29,4 +29,7 @@ dependencies {
     implementation("com.github.pedroSG94.RootEncoder:library:2.8.0")
 
     testImplementation("junit:junit:4.13.2")
+    // Android's platform org.json is a JVM stub in local unit tests; use the same API's
+    // reference implementation so the app-private metadata ledger is tested end-to-end.
+    testImplementation("org.json:json:20240303")
 }

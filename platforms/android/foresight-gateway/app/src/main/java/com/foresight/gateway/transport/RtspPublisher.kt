@@ -8,6 +8,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Size
 import android.util.Log
+import android.view.SurfaceView
 import com.pedro.common.ConnectChecker
 import com.pedro.common.socket.base.SocketType
 import com.pedro.encoder.input.sources.OrientationForced
@@ -15,7 +16,13 @@ import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.video.FrameCapturedCallback
+import com.pedro.encoder.utils.gl.AspectRatioMode
 import com.pedro.library.rtsp.RtspStream
+import com.pedro.library.base.recording.RecordController
+import com.foresight.gateway.capture.LocalRecordingContext
+import java.io.File
+import java.time.Instant
+import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.sqrt
 import java.util.Locale
@@ -34,16 +41,21 @@ class RtspPublisher(
         fun onBitrateChanged(bitsPerSecond: Long)
         fun onCameraTimingCapability(timestampSource: String)
         fun onCameraFrameCaptured(frameNumber: Long, timestampNanos: Long)
+        fun onLocalRecordingStarted(context: LocalRecordingContext)
+        fun onLocalRecordingFinalized(context: LocalRecordingContext, stopUtc: Instant)
+        fun onLocalRecordingInterrupted(context: LocalRecordingContext, detail: String)
     }
 
     private val applicationContext = context.applicationContext
     private var streamGeneration = 0
+    private val generationOwnership = RtspGenerationOwnership()
     private lateinit var cameraSource: Camera2Source
     private var stream = createStream()
     private val reconnectPolicy = RtspReconnectPolicy()
     private val retryState = RtspRetryState()
     private val transportHealthMonitor = RtspTransportHealthMonitor()
     private val senderProgressMonitor = RtspSenderProgressMonitor()
+    private val previewAttachment = PreviewAttachmentState()
     private val cameraFramesProduced = AtomicLong(0)
     private var captureRequested = false
     private var retryReason: String? = null
@@ -51,20 +63,40 @@ class RtspPublisher(
     private var fatalTransportError = false
     private var transportConnected = false
     private var activeEndpoint: String? = null
+    private var activeSourceSessionId: String? = null
     private var retryAttemptStartedElapsedMillis: Long? = null
     private var rebuildingTransport = false
+    private var stoppingTransport = false
+    private var previewSurfaceView: SurfaceView? = null
+    private var videoPrepared = false
+    private var localRecordingPath: File? = null
+    private var localRecordingContext: LocalRecordingContext? = null
+    private var localRecordingFailed = false
+    @Volatile
+    private var publisherLifecycle = StreamLifecycle.IDLE
 
-    fun start(endpoint: String): Boolean {
-        return startInternal(endpoint, resetRetryPolicy = true)
+    fun generation(): Int = streamGeneration
+
+    fun lifecycle(): StreamLifecycle = publisherLifecycle
+
+    private fun reportLifecycle(lifecycle: StreamLifecycle, detail: String? = null) {
+        publisherLifecycle = lifecycle
+        listener.onLifecycleChanged(lifecycle, detail)
     }
 
-    private fun startInternal(endpoint: String, resetRetryPolicy: Boolean): Boolean {
+    fun start(endpoint: String, sourceSessionId: String): Boolean {
+        return startInternal(endpoint, sourceSessionId, resetRetryPolicy = true)
+    }
+
+    private fun startInternal(endpoint: String, sourceSessionId: String, resetRetryPolicy: Boolean): Boolean {
         if (stream.isStreaming) {
-            Log.i(TAG, "RTSP stream is already active.")
+            Log.w(TAG, "RTSP start ignored because the previous transport is still active: $endpoint")
             return true
         }
+        check(!stoppingTransport) { "RTSP transport is still stopping; wait for IDLE before starting." }
         captureRequested = true
         activeEndpoint = endpoint
+        activeSourceSessionId = sourceSessionId
         if (resetRetryPolicy) reconnectPolicy.reset()
         cancelScheduledRetry("new capture request")
         cancelKtorFailureWait("new capture request")
@@ -75,7 +107,8 @@ class RtspPublisher(
         fatalTransportError = false
         transportConnected = false
 
-        listener.onLifecycleChanged(StreamLifecycle.PREPARING)
+        reportLifecycle(StreamLifecycle.PREPARING)
+        Log.i(TAG, "Capture generation $streamGeneration preparing: rtsp=$endpoint")
         val cameraSize = selectCameraSize()
         cameraSource.setRequiredResolution(cameraSize)
         logCameraGeometry(cameraSize)
@@ -94,11 +127,15 @@ class RtspPublisher(
             iFrameInterval = VIDEO_KEYFRAME_INTERVAL_SECONDS,
             rotation = VIDEO_ROTATION_DEGREES,
         )
+        videoPrepared = videoReady
         Log.i(TAG, "Video preparation result: $videoReady")
         if (videoReady) {
             // Keep the output viewport landscape, then apply the inverse of the Camera2
             // SurfaceTexture's clockwise axis exchange to the camera-quad MVP transform.
             stream.getGlInterface().forceOrientation(OrientationForced.LANDSCAPE)
+            // This applies only to the attached display surface. The 1280x720 encoder viewport
+            // and its validated camera-MVP compensation remain unchanged.
+            stream.getGlInterface().setAspectRatioMode(AspectRatioMode.Adjust)
             stream.setOrientation(CAMERA_TEXTURE_COMPENSATION_DEGREES)
             Log.i(
                 TAG,
@@ -118,12 +155,15 @@ class RtspPublisher(
         )
         Log.i(TAG, "Audio preparation result: $audioReady")
         if (!videoReady || !audioReady) {
-            listener.onLifecycleChanged(StreamLifecycle.ERROR, "Unable to prepare rear camera or microphone.")
+            videoPrepared = false
+            reportLifecycle(StreamLifecycle.ERROR, "Unable to prepare rear camera or microphone.")
             return false
         }
 
-        listener.onLifecycleChanged(StreamLifecycle.CONNECTING)
-        Log.i(TAG, "Starting RTSP stream: $endpoint")
+        attachPreviewIfReady()
+
+        reportLifecycle(StreamLifecycle.CONNECTING)
+        Log.i(TAG, "Capture generation $streamGeneration RTSP connecting: $endpoint")
         // RootEncoder reconnects only when its retry budget is positive. The app owns timing;
         // this generous budget simply keeps the requested foreground capture retryable.
         stream.getStreamClient().setReTries(ROOT_ENCODER_RETRY_BUDGET)
@@ -144,14 +184,26 @@ class RtspPublisher(
             }
         })
         stream.startStream(endpoint)
+        startLocalRecording(sourceSessionId)
         startTransportDiagnostics()
-        Log.i(TAG, "RootEncoder start requested for camera ${cameraSource.getCurrentCameraId()}.")
+        Log.i(
+            TAG,
+            "Capture generation $streamGeneration camera started: " +
+                "id=${cameraSource.getCurrentCameraId()}.",
+        )
         scheduleTextureDiagnostics(cameraSize)
         return true
     }
 
     fun stop() {
+        if (stoppingTransport) {
+            Log.i(TAG, "RTSP stop already in progress.")
+            return
+        }
         captureRequested = false
+        val retiredGeneration = streamGeneration
+        generationOwnership.retire(retiredGeneration)
+        Log.i(TAG, "Capture generation $retiredGeneration stop requested: rtsp=$activeEndpoint")
         cancelScheduledRetry("capture stop")
         cancelKtorFailureWait("capture stop")
         cancelRetryAttemptWatchdog("capture stop")
@@ -161,19 +213,154 @@ class RtspPublisher(
         fatalTransportError = false
         transportConnected = false
         mainHandler.removeCallbacks(transportDiagnostics)
+        detachPreviewForTransportStop()
+        stopLocalRecording()
+        videoPrepared = false
+        stoppingTransport = true
         if (!stream.isStreaming) {
-            listener.onLifecycleChanged(StreamLifecycle.IDLE)
+            completeStoppedTransport(retiredGeneration, "stream was already inactive")
             return
         }
-        listener.onLifecycleChanged(StreamLifecycle.STOPPING)
-        stream.stopStream()
+        reportLifecycle(StreamLifecycle.STOPPING)
+        try {
+            // RootEncoder's disconnect callback can occur before stopStream has stopped Camera2,
+            // EGL, and encoders. Only retire/rebuild once this synchronous method returns.
+            stream.stopStream()
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Capture generation $retiredGeneration stopStream raised an exception.", error)
+        }
+        completeStoppedTransport(retiredGeneration, "RootEncoder stopStream returned")
+    }
+
+    internal fun localRecordingContext(): LocalRecordingContext? = localRecordingContext
+
+    private fun startLocalRecording(sourceSessionId: String) {
+        val recordings = File(applicationContext.filesDir, "recordings")
+        if (!recordings.exists() && !recordings.mkdirs()) {
+            Log.e(TAG, "Unable to create private local recording directory.")
+            return
+        }
+        val recordingId = UUID.randomUUID().toString()
+        val path = File(recordings, "capture-$recordingId-g$streamGeneration.mp4")
+        val context = LocalRecordingContext(
+            recordingId = recordingId,
+            sourceSessionId = sourceSessionId,
+            captureGeneration = streamGeneration,
+            localMediaFileName = path.name,
+            startedUtc = Instant.now(),
+            startedMonotonicMillis = SystemClock.elapsedRealtime(),
+            isRecording = true,
+        )
+        try {
+            stream.startRecord(path.absolutePath, listener = object : RecordController.Listener {
+                override fun onStatusChange(status: RecordController.Status) {
+                    Log.i(TAG, "Local recording status generation=$streamGeneration status=$status file=${path.name}")
+                }
+
+                override fun onError(e: Exception?) {
+                    localRecordingFailed = true
+                    val detail = "RootEncoder local recorder error: ${e?.message ?: "unknown error"}"
+                    Log.e(TAG, detail, e)
+                    listener.onLocalRecordingInterrupted(context, detail)
+                }
+            })
+            localRecordingPath = path
+            localRecordingContext = context
+            localRecordingFailed = false
+            listener.onLocalRecordingStarted(context)
+            Log.i(TAG, "Local authoritative recording started generation=$streamGeneration file=${path.name}")
+        } catch (error: RuntimeException) {
+            Log.e(TAG, "Unable to start local recording; RTSP capture continues.", error)
+        }
+    }
+
+    private fun stopLocalRecording() {
+        val path = localRecordingPath ?: return
+        val context = localRecordingContext ?: return
+        try {
+            stream.stopRecord()
+            if (localRecordingFailed) {
+                listener.onLocalRecordingInterrupted(context, "RootEncoder local recorder reported an error before stop.")
+            } else {
+                listener.onLocalRecordingFinalized(context, Instant.now())
+                Log.i(TAG, "Local authoritative recording finalized generation=$streamGeneration file=${path.name}")
+            }
+        } catch (error: RuntimeException) {
+            val detail = "Unable to finalize local recording file=${path.name}: ${error.message}"
+            Log.e(TAG, detail, error)
+            listener.onLocalRecordingInterrupted(context, detail)
+        } finally {
+            localRecordingPath = null
+            localRecordingContext = context.copy(isRecording = false)
+            localRecordingFailed = false
+        }
+    }
+
+    private fun interruptLocalRecording(detail: String) {
+        val context = localRecordingContext ?: return
+        listener.onLocalRecordingInterrupted(context, detail)
+        localRecordingPath = null
+        localRecordingContext = context.copy(isRecording = false)
+        localRecordingFailed = false
+    }
+
+    /** Attach an activity display surface to the existing RootEncoder GL pipeline. */
+    fun attachPreview(surfaceView: SurfaceView) {
+        previewSurfaceView = surfaceView
+        previewAttachment.request()
+        Log.i(
+            TAG,
+            "Capture generation $streamGeneration preview request: valid=${surfaceView.holder.surface.isValid}, " +
+                "visible=${surfaceView.visibility == android.view.View.VISIBLE}, alpha=${surfaceView.alpha}, " +
+                "dimensions=${surfaceView.width}x${surfaceView.height}.",
+        )
+        attachPreviewIfReady()
+    }
+
+    /** Release only the display sink; camera, microphone, encoder, and RTSP remain service-owned. */
+    fun detachPreview(surfaceView: SurfaceView) {
+        if (previewSurfaceView !== surfaceView) return
+        previewSurfaceView = null
+        if (previewAttachment.releaseRequest() && stream.isOnPreview) {
+            Log.i(TAG, "Detaching RootEncoder preview surface from the activity.")
+            stream.stopPreview()
+        }
+    }
+
+    private fun attachPreviewIfReady() {
+        val surfaceView = previewSurfaceView ?: return
+        if (!videoPrepared || !previewAttachment.shouldAttach()) return
+        if (!surfaceView.holder.surface.isValid || surfaceView.width <= 0 || surfaceView.height <= 0) {
+            Log.i(TAG, "Preview attachment deferred until the activity SurfaceView has valid dimensions.")
+            return
+        }
+        try {
+            Log.i(TAG, "Capture generation $streamGeneration executing RootEncoder startPreview().")
+            stream.startPreview(surfaceView)
+            previewAttachment.markAttached()
+            Log.i(
+                TAG,
+                "Capture generation $streamGeneration preview attached to the camera-to-encoder GL pipeline; " +
+                    "preview=${surfaceView.width}x${surfaceView.height}, encoder=${VIDEO_WIDTH}x${VIDEO_HEIGHT}, " +
+                    "previewAspectMode=Adjust.",
+            )
+        } catch (error: IllegalStateException) {
+            Log.w(TAG, "RootEncoder preview attachment was deferred.", error)
+        }
+    }
+
+    private fun detachPreviewForTransportStop() {
+        if (previewAttachment.detachForTransportStop() && stream.isOnPreview) {
+            Log.i(TAG, "Capture generation $streamGeneration preview detached before transport stop or replacement.")
+            stream.stopPreview()
+        }
     }
 
     override fun onConnectionStarted(url: String) {
         retryState.connectionStarted()
         cancelKtorFailureWait("RootEncoder connection started")
         transportConnected = false
-        Log.i(TAG, "RTSP connection started: $url")
+        Log.i(TAG, "Capture generation $streamGeneration RTSP connection started: $url")
     }
 
     override fun onConnectionSuccess() {
@@ -185,14 +372,14 @@ class RtspPublisher(
         transportHealthMonitor.reset()
         transportConnected = true
         if (recoveredAfterAttempts > 0) {
-            Log.i(TAG, "RTSP connection recovered after $recoveredAfterAttempts retry attempt(s).")
-            listener.onLifecycleChanged(
+            Log.i(TAG, "Capture generation $streamGeneration RTSP recovered after $recoveredAfterAttempts retry attempt(s).")
+            reportLifecycle(
                 StreamLifecycle.STREAMING,
                 "RTSP recovered after $recoveredAfterAttempts retry attempt(s).",
             )
         } else {
-            Log.i(TAG, "RTSP connection established.")
-            listener.onLifecycleChanged(StreamLifecycle.STREAMING, "RTSP connected.")
+            Log.i(TAG, "Capture generation $streamGeneration RTSP connected: $activeEndpoint")
+            reportLifecycle(StreamLifecycle.STREAMING, "RTSP connected.")
         }
     }
 
@@ -221,9 +408,35 @@ class RtspPublisher(
         }
         if (captureRequested) {
             scheduleReconnect("RTSP transport disconnected")
-        } else {
-            listener.onLifecycleChanged(StreamLifecycle.IDLE)
         }
+    }
+
+    /**
+     * A RootEncoder RtspStream is not reused after a normal stop. Retiring it prevents the next
+     * session from inheriting a stopped sender, stale endpoint, or detached Camera2/GL state.
+     */
+    private fun completeStoppedTransport(retiredGeneration: Int, reason: String) {
+        if (!stoppingTransport) return
+        stoppingTransport = false
+        val retiredStream = stream
+        activeEndpoint = null
+        retryState.reset()
+        transportConnected = false
+        fatalTransportError = false
+        try {
+            // RootEncoder documents release() as the full source/encoder/GL disposal operation.
+            // stopStream() alone intentionally leaves prepared encoder state for reuse.
+            retiredStream.release()
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Capture generation $retiredGeneration release raised an exception.", error)
+        }
+        stream = createStream()
+        Log.i(
+            TAG,
+            "Capture generation $retiredGeneration retired after $reason; " +
+                "generation $streamGeneration created and idle.",
+        )
+        reportLifecycle(StreamLifecycle.IDLE, "Capture stopped.")
     }
 
     override fun onAuthError() {
@@ -234,7 +447,7 @@ class RtspPublisher(
         fatalTransportError = true
         transportConnected = false
         Log.e(TAG, "RTSP authentication failed; automatic retry is disabled.")
-        listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP authentication failed.")
+        reportLifecycle(StreamLifecycle.ERROR, "RTSP authentication failed.")
         if (stream.isStreaming) stream.stopStream()
     }
 
@@ -262,7 +475,7 @@ class RtspPublisher(
             TAG,
             "RTSP reconnect attempt ${reconnectPolicy.attempts()} scheduled in ${delayMillis}ms: $reason",
         )
-        listener.onLifecycleChanged(
+        reportLifecycle(
             StreamLifecycle.RECONNECTING,
             "RTSP reconnect ${reconnectPolicy.attempts()} in ${delayMillis / 1_000}s: $reason",
         )
@@ -293,7 +506,7 @@ class RtspPublisher(
                 captureRequested = false
                 fatalTransportError = true
                 Log.e(TAG, "RTSP cannot retry further: $reason")
-                listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP retry unavailable: $reason")
+                reportLifecycle(StreamLifecycle.ERROR, "RTSP retry unavailable: $reason")
                 if (stream.isStreaming) stream.stopStream()
             } else {
                 retryAttemptStartedElapsedMillis = SystemClock.elapsedRealtime()
@@ -327,7 +540,7 @@ class RtspPublisher(
         )
         if (!retryState.attemptDeadlineExpired()) return@Runnable
         retryAttemptStartedElapsedMillis = null
-        listener.onLifecycleChanged(
+        reportLifecycle(
             StreamLifecycle.RECONNECTING,
             "RTSP retry stalled; rebuilding the transport stack.",
         )
@@ -343,7 +556,7 @@ class RtspPublisher(
             "RTSP sender stalled; waiting ${KTOR_FAILURE_GRACE_MILLIS}ms for Ktor write failure " +
                 "before fallback retry: $reason",
         )
-        listener.onLifecycleChanged(StreamLifecycle.RECONNECTING, "RTSP sender stalled; verifying transport failure.")
+        reportLifecycle(StreamLifecycle.RECONNECTING, "RTSP sender stalled; verifying transport failure.")
         mainHandler.postDelayed(stalledTransportFallback, KTOR_FAILURE_GRACE_MILLIS)
     }
 
@@ -387,20 +600,24 @@ class RtspPublisher(
         if (endpoint == null) {
             captureRequested = false
             fatalTransportError = true
-            listener.onLifecycleChanged(StreamLifecycle.ERROR, "RTSP retry lost its endpoint.")
+            reportLifecycle(StreamLifecycle.ERROR, "RTSP retry lost its endpoint.")
             return
         }
         rebuildingTransport = true
         val retiredGeneration = streamGeneration
-        // Retire callbacks before stopping the old stream: its RootEncoder retry coroutine can be
-        // stuck in socket cleanup and must not alter the replacement stream's state later.
-        streamGeneration += 1
+        // Retire callbacks before stopping the old stream: its RootEncoder retry coroutine can
+        // be stuck in socket cleanup and must not alter the replacement stream's state later.
+        generationOwnership.retire(retiredGeneration)
         Log.w(
             TAG,
             "Retiring stuck RootEncoder transport generation $retiredGeneration: $reason",
         )
         try {
+            detachPreviewForTransportStop()
+            videoPrepared = false
+            interruptLocalRecording("RootEncoder transport was rebuilt before local recording finalization")
             stream.stopStream()
+            stream.release()
         } catch (error: RuntimeException) {
             Log.w(TAG, "Retired RootEncoder transport stop raised an exception.", error)
         }
@@ -413,17 +630,19 @@ class RtspPublisher(
             stream = createStream()
             rebuildingTransport = false
             Log.i(TAG, "Starting replacement RootEncoder transport generation $streamGeneration.")
-            if (!startInternal(endpoint, resetRetryPolicy = false)) {
+            if (!startInternal(requireNotNull(activeEndpoint), requireNotNull(activeSourceSessionId), resetRetryPolicy = false)) {
                 captureRequested = false
                 fatalTransportError = true
-                listener.onLifecycleChanged(StreamLifecycle.ERROR, "Unable to rebuild RTSP transport.")
+                reportLifecycle(StreamLifecycle.ERROR, "Unable to rebuild RTSP transport.")
             }
         }, TRANSPORT_REBUILD_DELAY_MILLIS)
     }
 
     private fun createStream(): RtspStream {
         val generation = ++streamGeneration
+        generationOwnership.activate(generation)
         cameraSource = Camera2Source(applicationContext)
+        Log.i(TAG, "Capture generation $generation RootEncoder transport created.")
         return RtspStream(
             applicationContext,
             generationScopedConnectChecker(generation),
@@ -463,7 +682,7 @@ class RtspPublisher(
     }
 
     private fun forwardIfCurrent(generation: Int, callback: () -> Unit) {
-        if (generation == streamGeneration) callback()
+        if (generation == streamGeneration && generationOwnership.accepts(generation)) callback()
         else Log.i(TAG, "Ignoring callback from retired RootEncoder transport generation $generation.")
     }
 
@@ -516,7 +735,7 @@ class RtspPublisher(
                     "RTSP sender progress stalled for ${progress.stalledSamples} probes while Camera2 input " +
                         "continued; rebuilding before the sender queue fills.",
                 )
-                listener.onLifecycleChanged(StreamLifecycle.RECONNECTING, "RTSP sender stalled; rebuilding transport.")
+                reportLifecycle(StreamLifecycle.RECONNECTING, "RTSP sender stalled; rebuilding transport.")
                 rebuildTransportStack("camera input continued while RootEncoder sender counters froze")
                 return
             }

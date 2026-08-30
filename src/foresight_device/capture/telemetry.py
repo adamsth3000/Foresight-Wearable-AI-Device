@@ -150,9 +150,10 @@ class TelemetryReceiver:
         store: SessionTelemetryStore,
         host: str = "0.0.0.0",
         port: int = 8766,
+        control_service: Any | None = None,
     ) -> None:
         self.store = store
-        self._server = ThreadingHTTPServer((host, port), _handler_for(store))
+        self._server = ThreadingHTTPServer((host, port), _handler_for(store, control_service))
         self._thread: threading.Thread | None = None
 
     @property
@@ -192,8 +193,22 @@ def copy_event_sensor_records(
     return destination, len(records)
 
 
-def _handler_for(store: SessionTelemetryStore) -> type[BaseHTTPRequestHandler]:
+def _handler_for(
+    store: SessionTelemetryStore, control: Any | None = None
+) -> type[BaseHTTPRequestHandler]:
     class TelemetryHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802 - HTTP handler API
+            if control is not None and self.path == "/events/status":
+                status = control.status()
+                LOGGER.debug(
+                    "GET /events/status state=%s event_id=%s",
+                    status["state"],
+                    status["event_id"],
+                )
+                _write_response(self, HTTPStatus.OK, status)
+            else:
+                _write_response(self, HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
+
         def do_POST(self) -> None:  # noqa: N802 - HTTP handler API
             try:
                 payload = _read_payload(self)
@@ -205,9 +220,15 @@ def _handler_for(store: SessionTelemetryStore) -> type[BaseHTTPRequestHandler]:
                         HTTPStatus.ACCEPTED,
                         {"accepted": store.append_records(payload)},
                     )
+                elif control is not None and self.path == "/events/start":
+                    _write_response(self, HTTPStatus.OK, control.start())
+                elif control is not None and self.path == "/events/end":
+                    _write_response(self, HTTPStatus.OK, control.end())
+                elif control is not None and self.path == "/events/quick":
+                    _write_response(self, HTTPStatus.ACCEPTED, control.quick())
                 else:
                     _write_response(self, HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
-            except (TelemetryProtocolError, json.JSONDecodeError) as exc:
+            except (TelemetryProtocolError, RuntimeError, json.JSONDecodeError) as exc:
                 _write_response(self, HTTPStatus.BAD_REQUEST, {"error": str(exc)})
 
         def log_message(self, _format: str, *_args: object) -> None:

@@ -10,6 +10,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
+import android.view.SurfaceView
 import com.foresight.gateway.R
 import com.foresight.gateway.metadata.CaptureSessionMetadata
 import com.foresight.gateway.transport.StreamLifecycle
@@ -17,6 +19,8 @@ import com.foresight.gateway.transport.StreamLifecycle
 /** User-started foreground service that keeps camera and microphone capture visible. */
 class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
     private lateinit var controller: PhoneCaptureController
+    @Volatile
+    private var authoritativeEventState: String = "idle"
 
     override fun onCreate() {
         super.onCreate()
@@ -28,24 +32,65 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         when (intent?.action) {
             ACTION_START -> {
                 startAsForeground("Preparing capture")
-                runCatching { controller.start(intent.requireEndpoint(), intent.telemetryEndpoint()) }
+                val endpoint = intent.requireEndpoint()
+                Log.i(
+                    TAG,
+                    "Capture start requested: rtsp=$endpoint; ${controller.startDiagnostics()}; " +
+                        "invoking PhoneCaptureController.start().",
+                )
+                runCatching { controller.start(endpoint, intent.telemetryEndpoint()) }
+                    .onSuccess { accepted ->
+                        if (!accepted) Log.w(TAG, "Capture start was rejected: ${controller.startDiagnostics()}.")
+                    }
                     .onFailure { onCaptureStateChanged(StreamLifecycle.ERROR, null, it.message) }
             }
 
             ACTION_STOP -> {
-                controller.stop()
-                stopSelf()
+                if (CaptureEventInterlock.blocksCaptureStop(authoritativeEventState)) {
+                    onCaptureStateChanged(
+                        currentStatus.lifecycle,
+                        currentStatus.metadata,
+                        "End the active event before stopping capture.",
+                    )
+                } else {
+                    controller.stop()
+                }
             }
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        Log.i(TAG, "Service destroyed; requesting controller shutdown if it is still active.")
         controller.stop()
         super.onDestroy()
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder = CaptureBinder()
+
+    inner class CaptureBinder : android.os.Binder() {
+        fun attachPreview(surfaceView: SurfaceView) {
+            controller.attachPreview(surfaceView)
+        }
+
+        fun detachPreview(surfaceView: SurfaceView) {
+            controller.detachPreview(surfaceView)
+        }
+
+        fun updateEventState(state: String) {
+            authoritativeEventState = state
+        }
+
+        fun onAuthoritativeEventStarted(eventId: String, receiptUtc: java.time.Instant, receiptMonotonicMillis: Long) {
+            runCatching { controller.authoritativeEventStarted(eventId, receiptUtc, receiptMonotonicMillis) }
+                .onFailure { Log.w(TAG, "Authoritative event START rejected: ${it.message}") }
+        }
+
+        fun onAuthoritativeEventEnded(eventId: String, receiptUtc: java.time.Instant, receiptMonotonicMillis: Long) {
+            runCatching { controller.authoritativeEventEnded(eventId, receiptUtc, receiptMonotonicMillis) }
+                .onFailure { Log.w(TAG, "Authoritative event END rejected: ${it.message}") }
+        }
+    }
 
     override fun onCaptureStateChanged(
         lifecycle: StreamLifecycle,
@@ -57,6 +102,15 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         notificationManager().notify(NOTIFICATION_ID, buildNotification(text))
         if (lifecycle == StreamLifecycle.ERROR) {
             stopSelf()
+        } else if (lifecycle == StreamLifecycle.IDLE) {
+            // Keep the activity-bound controller alive for a deterministic next START. This
+            // removes foreground status without retaining camera, audio, encoder, or RTSP work.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
         }
     }
 
@@ -132,7 +186,7 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
 
         private const val NOTIFICATION_CHANNEL_ID = "foresight_capture"
         private const val NOTIFICATION_ID = 1001
-
+        private const val TAG = "CaptureForegroundService"
         @Volatile
         var currentStatus = CaptureStatus(StreamLifecycle.IDLE, null, null)
             private set

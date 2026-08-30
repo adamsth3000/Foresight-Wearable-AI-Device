@@ -1,7 +1,10 @@
 import hashlib
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+import pytest
 
 from foresight_device.capture import (
     ConfiguredMediaSource,
@@ -10,6 +13,7 @@ from foresight_device.capture import (
     MediaSourceDescriptor,
     RollingBuffer,
 )
+from foresight_device.capture.event_service import EventStateError
 
 
 def _source() -> ConfiguredMediaSource:
@@ -231,3 +235,113 @@ def test_mature_buffer_preserves_requested_thirty_second_pre_and_fifteen_second_
     assert len(completed) == 1
     assert completed[0].actual_start_utc == pre.started_at_utc
     assert completed[0].actual_end_utc == final.ended_at_utc
+
+
+def test_bounded_event_retains_arbitrary_duration_and_uses_no_quick_post_roll(
+    tmp_path: Path,
+) -> None:
+    buffer = RollingBuffer(retention_seconds=4)
+    service = EventService(_source(), buffer, tmp_path / "events", _concatenate, post_seconds=15)
+    start = datetime(2026, 8, 27, tzinfo=UTC)
+    event_id = service.start_bounded(start_utc=start, start_monotonic_ns=7)
+    for sequence, second in enumerate((0, 2, 4, 6, 8)):
+        segment = _segment(tmp_path, sequence, second)
+        buffer.add(segment, now=segment.ended_at_utc)
+        service.observe_segment(segment)
+    service.end_bounded(end_utc=start + timedelta(seconds=9))
+    final = _segment(tmp_path, 5, 10)
+    buffer.add(final, now=final.ended_at_utc)
+    completed = service.observe_segment(final)
+
+    assert len(completed) == 1
+    event = completed[0]
+    assert event.event_id == event_id
+    assert event.event_mode.value == "bounded"
+    assert event.requested_post_seconds == 0
+    manifest = json.loads(event.manifest_path.read_text())
+    assert manifest["event_mode"] == "bounded"
+    assert manifest["bounded_event"]["duration_seconds"] == 9
+
+
+def test_bounded_event_rejects_invalid_transitions_and_quick_event(tmp_path: Path) -> None:
+    service = EventService(_source(), RollingBuffer(60), tmp_path / "events", _concatenate)
+    with pytest.raises(EventStateError, match="no bounded"):
+        service.end_bounded()
+    service.start_bounded()
+    with pytest.raises(EventStateError, match="already active"):
+        service.start_bounded()
+    with pytest.raises(EventStateError, match="quick event"):
+        service.trigger()
+
+
+def test_finalizing_bounded_event_promotes_only_closed_media_after_source_loss(
+    tmp_path: Path,
+) -> None:
+    buffer = RollingBuffer(60)
+    service = EventService(
+        _source(),
+        buffer,
+        tmp_path / "events",
+        _concatenate,
+        bounded_finalization_timeout_seconds=3_600,
+    )
+    start = datetime(2026, 8, 27, tzinfo=UTC)
+    event_id = service.start_bounded(start_utc=start)
+    segment = _segment(tmp_path, 0, 0)
+    buffer.add(segment, now=segment.ended_at_utc)
+    service.observe_segment(segment)
+    service.end_bounded(end_utc=start + timedelta(seconds=10))
+
+    event = service.finalize_bounded_after_source_loss(event_id)
+
+    assert event is not None
+    assert event.actual_end_utc == segment.ended_at_utc
+    manifest = json.loads(event.manifest_path.read_text())
+    assert manifest["bounded_event"]["end_utc"] == (start + timedelta(seconds=10)).isoformat()
+    assert manifest["bounded_event"]["source_terminated_early"] is True
+    assert service.pending_count == 0
+
+
+def test_finalizing_bounded_event_without_media_fails_cleanly_after_source_loss(
+    tmp_path: Path,
+) -> None:
+    service = EventService(
+        _source(),
+        RollingBuffer(60),
+        tmp_path / "events",
+        _concatenate,
+        bounded_finalization_timeout_seconds=3_600,
+    )
+    event_id = service.start_bounded()
+    service.end_bounded()
+
+    assert service.finalize_bounded_after_source_loss(event_id) is None
+    assert service.pending_count == 0
+    assert not (tmp_path / "events" / event_id).exists()
+
+
+def test_bounded_finalization_timeout_promotes_only_existing_media(tmp_path: Path) -> None:
+    """A lost source resolves finalization rather than leaving the event pending forever."""
+
+    buffer = RollingBuffer(60)
+    service = EventService(
+        _source(),
+        buffer,
+        tmp_path / "events",
+        _concatenate,
+        bounded_finalization_timeout_seconds=0.01,
+    )
+    start = datetime(2026, 8, 27, tzinfo=UTC)
+    event_id = service.start_bounded(start_utc=start)
+    segment = _segment(tmp_path, 0, 0)
+    buffer.add(segment, now=segment.ended_at_utc)
+    service.observe_segment(segment)
+    service.end_bounded(end_utc=start + timedelta(seconds=10))
+
+    deadline = time.monotonic() + 1
+    while service.pending_count and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert service.pending_count == 0
+    manifest = json.loads((tmp_path / "events" / event_id / "manifest.json").read_text())
+    assert manifest["bounded_event"]["source_terminated_early"] is True

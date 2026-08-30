@@ -11,7 +11,9 @@ from uuid import uuid4
 
 from foresight_device.capture import (
     ConfiguredMediaSource,
+    EventControlService,
     EventService,
+    EventStateError,
     FfmpegRtspIngress,
     MediaSegment,
     MediaSourceDescriptor,
@@ -219,10 +221,7 @@ def _dispatch_audio_output(
     """Dispatch optional output adapters without interrupting terminal behavior."""
 
     diagnostics: list[str] = []
-    if (
-        cue_output is not None
-        and response.metadata.get("simulated_acknowledgement_cue") == "BEEP"
-    ):
+    if cue_output is not None and response.metadata.get("simulated_acknowledgement_cue") == "BEEP":
         try:
             cue_output.play_cue(AudioCue.WAKE_ACKNOWLEDGEMENT)
         except AudioOutputUnavailableError as exc:
@@ -434,12 +433,6 @@ def run_capture_cli(
     )
     telemetry_store = SessionTelemetryStore(data_root / "sessions", capture_session_id)
     telemetry_receiver: TelemetryReceiver | None = None
-    if telemetry_port is not None:
-        try:
-            telemetry_receiver = TelemetryReceiver(telemetry_store, telemetry_host, telemetry_port)
-            telemetry_receiver.start()
-        except OSError as exc:
-            output_stream.write(f"Telemetry unavailable: {exc}\n")
     rolling_buffer = RollingBuffer(retention_seconds)
     event_service: EventService
 
@@ -466,6 +459,17 @@ def run_capture_cli(
         post_seconds=post_seconds,
         telemetry_store=telemetry_store,
     )
+    if telemetry_port is not None:
+        try:
+            telemetry_receiver = TelemetryReceiver(
+                telemetry_store,
+                telemetry_host,
+                telemetry_port,
+                EventControlService(event_service),
+            )
+            telemetry_receiver.start()
+        except OSError as exc:
+            output_stream.write(f"Telemetry unavailable: {exc}\n")
 
     try:
         ingress.start()
@@ -478,12 +482,16 @@ def run_capture_cli(
 
     output_stream.write(
         f"Foresight Phase 1C capture started. Session: {capture_session_id}. "
-        "Type 'event', 'status', or 'stop'.\n"
+        "Type 'event', 'start', 'end', 'status', or 'stop'.\n"
     )
     if telemetry_receiver is not None:
         output_stream.write(
             f"Telemetry listener: {telemetry_host}:{telemetry_receiver.port}; enter "
             "http://<laptop-LAN-IP>:<port> in Android (POST /v1/bind then /v1/records).\n"
+        )
+        output_stream.write(
+            "Event control: POST /events/start, /events/end, /events/quick; "
+            "GET /events/status.\n"
         )
     output_stream.flush()
     try:
@@ -499,8 +507,23 @@ def run_capture_cli(
                 break
             normalized = command.strip().lower()
             if normalized == "event":
-                event_id = event_service.trigger()
-                output_stream.write(f"Manual event pending: {event_id}\n")
+                try:
+                    event_id = event_service.trigger()
+                    output_stream.write(f"Manual event pending: {event_id}\n")
+                except EventStateError as exc:
+                    output_stream.write(f"Event rejected: {exc}\n")
+            elif normalized == "start":
+                try:
+                    output_stream.write(f"Bounded event started: {event_service.start_bounded()}\n")
+                except EventStateError as exc:
+                    output_stream.write(f"Event rejected: {exc}\n")
+            elif normalized == "end":
+                try:
+                    output_stream.write(
+                        f"Bounded event finalizing: {event_service.end_bounded()}\n"
+                    )
+                except EventStateError as exc:
+                    output_stream.write(f"Event rejected: {exc}\n")
             elif normalized == "status":
                 failure = ingress.failure_message
                 output_stream.write(
@@ -516,7 +539,7 @@ def run_capture_cli(
             elif normalized in {"stop", "exit", "quit"}:
                 break
             elif normalized:
-                output_stream.write("Use 'event', 'status', or 'stop'.\n")
+                output_stream.write("Use 'event', 'start', 'end', 'status', or 'stop'.\n")
             output_stream.flush()
     finally:
         ingress.stop()

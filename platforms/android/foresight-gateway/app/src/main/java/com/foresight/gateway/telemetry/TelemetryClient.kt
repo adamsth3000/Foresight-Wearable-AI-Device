@@ -1,6 +1,7 @@
 package com.foresight.gateway.telemetry
 
 import android.util.Log
+import android.os.SystemClock
 import com.foresight.gateway.metadata.CaptureSessionMetadata
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,7 +15,7 @@ import java.util.concurrent.TimeUnit
 /** Bounded, best-effort LAN telemetry sender that never controls RTSP capture. */
 class TelemetryClient(
     private val listener: Listener,
-    private val maxQueuedRecords: Int = 2_048,
+    private val maxQueuedRecords: Int = 512,
 ) {
     interface Listener {
         fun onTelemetryBound(captureSessionId: String)
@@ -23,6 +24,7 @@ class TelemetryClient(
 
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private val queue = ArrayDeque<JSONObject>()
+    private val backpressure = TelemetryBackpressurePolicy()
     private var metadata: CaptureSessionMetadata? = null
     private var endpoint: String? = null
     private var captureSessionId: String? = null
@@ -30,6 +32,14 @@ class TelemetryClient(
     private var workScheduled = false
     private var retryRequired = false
     private var droppedRecordCount = 0
+    private var generatedRecordCount = 0L
+    private var queuedRecordCount = 0L
+    private var uploadedRecordCount = 0L
+    private var uploadBatchCount = 0L
+    private var retryCount = 0L
+    private var downsampledRecordCount = 0L
+    private var lastUploadElapsedMillis = 0L
+    private var lastMetricsLogElapsedMillis = 0L
 
     fun start(session: CaptureSessionMetadata, telemetryEndpoint: String) {
         synchronized(this) {
@@ -49,6 +59,14 @@ class TelemetryClient(
     fun enqueue(record: JSONObject) {
         synchronized(this) {
             if (!active) return
+            generatedRecordCount += 1
+            val recordType = record.optString("record_type")
+            val timestamp = record.optLong("timestamp_elapsed_realtime_nanos").takeIf { it > 0L }
+            if (!backpressure.retain(recordType, timestamp)) {
+                downsampledRecordCount += 1
+                logMetricsLocked("IMU downsample")
+                return
+            }
             if (queue.size == maxQueuedRecords) {
                 queue.removeFirst()
                 droppedRecordCount += 1
@@ -60,7 +78,8 @@ class TelemetryClient(
                 }
             }
             queue.addLast(record)
-            scheduleWorkLocked()
+            queuedRecordCount += 1
+            scheduleWorkLocked(backpressure.normalUploadDelayMillis(SystemClock.elapsedRealtime(), lastUploadElapsedMillis))
         }
     }
 
@@ -86,8 +105,14 @@ class TelemetryClient(
                 synchronized(this) {
                     workScheduled = false
                     if (active && queue.isNotEmpty()) {
-                        val delay = if (retryRequired) RETRY_DELAY_MILLIS else 0L
+                        val delay = if (retryRequired) {
+                            retryCount += 1
+                            backpressure.nextFailureDelayMillis()
+                        } else {
+                            backpressure.normalUploadDelayMillis(SystemClock.elapsedRealtime(), lastUploadElapsedMillis)
+                        }
                         retryRequired = false
+                        logMetricsLocked("work complete")
                         scheduleWorkLocked(delay)
                     }
                 }
@@ -120,6 +145,7 @@ class TelemetryClient(
             val response = post(bindUrl, body, "bind")
             val boundId = response.getString("capture_session_id")
             synchronized(this) { captureSessionId = boundId }
+            backpressure.recordSuccess()
             Log.i(TAG, "Telemetry bound canonicalCaptureSessionId=$boundId")
             listener.onTelemetryBound(boundId)
             listener.onTelemetryStatus("Telemetry bound to capture session $boundId")
@@ -146,6 +172,13 @@ class TelemetryClient(
             }
             val recordsUrl = buildRequestUrl(requireNotNull(endpoint), "/v1/records")
             post(recordsUrl, body, "records")
+            synchronized(this) {
+                uploadedRecordCount += records.size
+                uploadBatchCount += 1
+                lastUploadElapsedMillis = SystemClock.elapsedRealtime()
+                backpressure.recordSuccess()
+                logMetricsLocked("records uploaded")
+            }
         } catch (error: Exception) {
             synchronized(this) {
                 retryRequired = true
@@ -181,13 +214,25 @@ class TelemetryClient(
         }
     }
 
+    private fun logMetricsLocked(reason: String) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastMetricsLogElapsedMillis < METRICS_LOG_INTERVAL_MILLIS) return
+        lastMetricsLogElapsedMillis = now
+        Log.i(
+            TAG,
+            "Telemetry metrics reason=$reason generated=$generatedRecordCount queued=$queuedRecordCount " +
+                "uploaded=$uploadedRecordCount batches=$uploadBatchCount buffered=${queue.size}/$maxQueuedRecords " +
+                "dropped=$droppedRecordCount downsampled=$downsampledRecordCount retries=$retryCount.",
+        )
+    }
+
     private companion object {
         const val TAG = "TelemetryClient"
-        const val MAX_BATCH_RECORDS = 64
+        const val MAX_BATCH_RECORDS = 32
         const val CONNECT_TIMEOUT_MILLIS = 1_500
         const val READ_TIMEOUT_MILLIS = 2_000
-        const val RETRY_DELAY_MILLIS = 1_000L
         const val QUEUE_WARNING_INTERVAL = 100
+        const val METRICS_LOG_INTERVAL_MILLIS = 30_000L
 
         internal fun buildRequestUrl(baseUrl: String, path: String): String {
             val normalizedBase = baseUrl.trimEnd('/')

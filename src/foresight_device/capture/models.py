@@ -5,8 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from uuid import uuid4
+
+
+class EventMode(StrEnum):
+    QUICK = "quick"
+    BOUNDED = "bounded"
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +60,10 @@ class CaptureEvent:
     created_at_utc: datetime
     sensors_path: Path | None = None
     sensor_record_count: int = 0
+    event_mode: EventMode = EventMode.QUICK
+    bounded_start_utc: datetime | None = None
+    bounded_end_utc: datetime | None = None
+    source_terminated_early: bool = False
 
     @classmethod
     def new_id(cls) -> str:
