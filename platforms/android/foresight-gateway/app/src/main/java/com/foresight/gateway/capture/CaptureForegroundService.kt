@@ -90,6 +90,22 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
             runCatching { controller.authoritativeEventEnded(eventId, receiptUtc, receiptMonotonicMillis) }
                 .onFailure { Log.w(TAG, "Authoritative event END rejected: ${it.message}") }
         }
+
+        fun syncReadyEventMedia(
+            eventId: String,
+            controlEndpoint: String,
+            callback: (EventMediaSyncUiState) -> Unit,
+        ) {
+            controller.syncReadyEventMedia(eventId, controlEndpoint, callback)
+        }
+
+        fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
+            controller.eventMediaSyncState(eventId)
+
+        internal fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
+            controller.eventMediaExtractionState(eventId)
+
+        fun latestSyncableEventId(): String? = controller.latestSyncableEventId()
     }
 
     override fun onCaptureStateChanged(

@@ -1,12 +1,40 @@
 package com.foresight.gateway.ui
 
 import com.foresight.gateway.control.EventControlState
+import com.foresight.gateway.capture.EventMediaExtractionState
+import com.foresight.gateway.capture.EventMediaSyncState
 import com.foresight.gateway.transport.StreamLifecycle
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GatewayPresentationTest {
+    @Test
+    fun `READY locally retained event is eligible for visible sync`() {
+        val state = GatewaySyncPresentation(
+            eventId = "event-1",
+            extractionState = EventMediaExtractionState.READY,
+            syncState = EventMediaSyncState.LOCAL_ONLY,
+            serviceBound = true,
+        )
+
+        assertTrue(state.buttonVisible)
+        assertTrue(state.buttonEnabled)
+    }
+
+    @Test
+    fun `restart-recovered READY local event remains eligible for sync`() {
+        val state = GatewaySyncPresentation(
+            eventId = "event-1",
+            extractionState = EventMediaExtractionState.READY,
+            syncState = EventMediaSyncState.LOCAL_ONLY,
+            serviceBound = true,
+        )
+
+        assertTrue(state.buttonEnabled)
+        assertTrue(state.reason.contains("Ready"))
+    }
+
     @Test
     fun `stopped capture has no red light and only start capture enabled`() {
         val state = GatewayPresentation(StreamLifecycle.IDLE, EventControlState())

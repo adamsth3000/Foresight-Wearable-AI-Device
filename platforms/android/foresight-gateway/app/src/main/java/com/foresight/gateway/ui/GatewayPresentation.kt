@@ -2,6 +2,8 @@ package com.foresight.gateway.ui
 
 import com.foresight.gateway.control.EventControlState
 import com.foresight.gateway.capture.CaptureEventInterlock
+import com.foresight.gateway.capture.EventMediaExtractionState
+import com.foresight.gateway.capture.EventMediaSyncState
 import com.foresight.gateway.transport.StreamLifecycle
 
 /** Maps authoritative service and laptop responses to the visible gateway controls. */
@@ -32,5 +34,31 @@ internal data class GatewayPresentation(
         "finalizing" -> "FINALIZING"
         "quick_event_pending" -> "PENDING"
         else -> "ERROR"
+    }
+}
+
+/** Keeps the visible sync control tied to durable local-media state, not control API state. */
+internal data class GatewaySyncPresentation(
+    val eventId: String?,
+    val extractionState: EventMediaExtractionState?,
+    val syncState: EventMediaSyncState?,
+    val serviceBound: Boolean,
+) {
+    val buttonVisible: Boolean get() = true
+    val buttonEnabled: Boolean
+        get() = serviceBound && extractionState == EventMediaExtractionState.READY &&
+            syncState != EventMediaSyncState.UPLOADING
+
+    val reason: String get() = when {
+        eventId == null -> "No local event is available"
+        !serviceBound -> "Capture service unavailable"
+        extractionState == null -> "Awaiting local event metadata"
+        extractionState == EventMediaExtractionState.PENDING || extractionState == EventMediaExtractionState.EXTRACTING ->
+            "Waiting for local extraction"
+        extractionState == EventMediaExtractionState.FAILED -> "Local extraction failed"
+        syncState == EventMediaSyncState.UPLOADING -> "Sync in progress"
+        syncState == EventMediaSyncState.SYNCED -> "Verified by laptop"
+        syncState == EventMediaSyncState.FAILED -> "Previous sync failed; retry is available"
+        else -> "Ready to sync retained local media"
     }
 }

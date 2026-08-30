@@ -26,9 +26,12 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.view.SurfaceView
 import android.widget.TextView
 import com.foresight.gateway.capture.CaptureForegroundService
+import com.foresight.gateway.capture.EventMediaSyncState
+import com.foresight.gateway.capture.EventMediaSyncUiState
 import com.foresight.gateway.control.EventControlClient
 import com.foresight.gateway.control.EventControlUiState
 
@@ -46,10 +49,15 @@ class GatewayActivity : Activity() {
     private lateinit var startEventButton: Button
     private lateinit var endEventButton: Button
     private lateinit var quickEventButton: Button
+    private lateinit var syncEventButton: Button
     private lateinit var previewSurface: SurfaceView
     private lateinit var stoppedPreviewOverlay: View
     private val eventControl = EventControlClient()
     private var eventUiState = EventControlUiState()
+    private var syncUiState = EventMediaSyncUiState()
+    private var lastEventIdForSync: String? = null
+    private var lastPropagatedSyncEventId: String? = null
+    private var lastSyncUiDiagnostic: String? = null
     private var configurationState = GatewayConfigurationState()
     private var captureEndpointState = GatewayCaptureEndpointState()
     private var captureBinder: CaptureForegroundService.CaptureBinder? = null
@@ -70,6 +78,7 @@ class GatewayActivity : Activity() {
     private val captureServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             captureBinder = service as? CaptureForegroundService.CaptureBinder
+            refreshSyncableEventFromService()
             attachPreviewIfReady()
             renderStatus()
         }
@@ -83,6 +92,7 @@ class GatewayActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        lastEventIdForSync = preferences().getString(PREF_LAST_SYNC_EVENT_ID, null)
         endpointInput = EditText(this).apply {
             hint = "rtsp://LAPTOP_IP:8554/foresight-phone"
             captureEndpointState = GatewayCaptureEndpointState.restore(
@@ -239,7 +249,17 @@ class GatewayActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), 0, 0, 0)
         }
-        addView(controls, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.5f))
+        val controlsScroll = ScrollView(this@GatewayActivity).apply {
+            isFillViewport = true
+            addView(
+                controls,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
+        addView(controlsScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.5f))
 
         controls.addView(panelLabel("RTSP DESTINATION"))
         controls.addView(endpointInput, LinearLayout.LayoutParams(
@@ -300,6 +320,15 @@ class GatewayActivity : Activity() {
         }
         eventRow.addView(quickEventButton, LinearLayout.LayoutParams(0, dp(82), 1f))
         controls.addView(eventRow)
+        syncEventButton = Button(this@GatewayActivity).apply {
+            text = "SYNC EVENT"
+            textSize = 18f
+            setOnClickListener { syncCurrentEvent() }
+        }
+        controls.addView(syncEventButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(60),
+        ))
         controls.addView(statusText)
     }
 
@@ -345,6 +374,7 @@ class GatewayActivity : Activity() {
     }
 
     private fun renderStatus() {
+        val syncPresentation = refreshSyncableEventFromService()
         val status = CaptureForegroundService.currentStatus
         val metadata = status.metadata
         val presentation = GatewayPresentation(status.lifecycle, eventUiState.event)
@@ -355,6 +385,8 @@ class GatewayActivity : Activity() {
             status.detail?.let { append("\nCapture detail: $it") }
             metadata?.captureSessionId?.let { append("\nSession: ${it.take(8)}") }
             eventUiState.detail?.let { append("\nEvent control: $it") }
+            append("\nSync: ${syncPresentation.syncState?.name ?: syncUiState.state.name}")
+            append(" (${syncPresentation.reason})")
         }
         overlayStatusText.text = buildString {
             append("Capture: ${presentation.captureLabel}")
@@ -368,6 +400,10 @@ class GatewayActivity : Activity() {
         startEventButton.isEnabled = presentation.startEventEnabled
         endEventButton.isEnabled = presentation.endEventEnabled
         quickEventButton.isEnabled = presentation.quickEventEnabled
+        syncEventButton.visibility = if (syncPresentation.buttonVisible) View.VISIBLE else View.GONE
+        syncEventButton.isEnabled = syncPresentation.buttonEnabled
+        syncEventButton.text = if (syncPresentation.syncState == EventMediaSyncState.FAILED) "RETRY SYNC" else "SYNC EVENT"
+        logSyncUiDecision(syncPresentation)
         captureBinder?.updateEventState(presentation.event.state)
         clearStoppedPreviewIfNeeded(status.lifecycle)
     }
@@ -427,11 +463,42 @@ class GatewayActivity : Activity() {
                     val receiptMonotonic = android.os.SystemClock.elapsedRealtime()
                     when (action) {
                         "start" -> captureBinder?.onAuthoritativeEventStarted(eventId, receiptUtc, receiptMonotonic)
-                        "end" -> captureBinder?.onAuthoritativeEventEnded(eventId, receiptUtc, receiptMonotonic)
+                        "end" -> {
+                            captureBinder?.onAuthoritativeEventEnded(eventId, receiptUtc, receiptMonotonic)
+                            lastEventIdForSync = eventId
+                            preferences().edit().putString(PREF_LAST_SYNC_EVENT_ID, eventId).apply()
+                            Log.i(TAG, "Sync event candidate assigned from authoritative END: eventId=$eventId")
+                            syncUiState = EventMediaSyncUiState(
+                                EventMediaSyncState.LOCAL_ONLY,
+                                "Waiting for local extraction",
+                            )
+                        }
                     }
                 }
                 renderStatus()
             }
+        }
+    }
+
+    private fun syncCurrentEvent() {
+        val syncPresentation = refreshSyncableEventFromService()
+        val eventId = syncPresentation.eventId ?: return
+        if (!syncPresentation.buttonEnabled) {
+            syncUiState = EventMediaSyncUiState(EventMediaSyncState.LOCAL_ONLY, syncPresentation.reason)
+            renderStatus()
+            return
+        }
+        val endpoint = configurationState.controlBaseUrl
+        syncUiState = EventMediaSyncUiState(EventMediaSyncState.UPLOADING, null)
+        renderStatus()
+        captureBinder?.syncReadyEventMedia(eventId, endpoint) { state ->
+            runOnUiThread {
+                syncUiState = state
+                renderStatus()
+            }
+        } ?: run {
+            syncUiState = EventMediaSyncUiState(EventMediaSyncState.FAILED, "Capture service unavailable")
+            renderStatus()
         }
     }
 
@@ -482,6 +549,35 @@ class GatewayActivity : Activity() {
 
     private fun preferences() = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
 
+    private fun refreshSyncableEventFromService(): GatewaySyncPresentation {
+        val binder = captureBinder
+        val recoveredEventId = binder?.latestSyncableEventId()
+        if (recoveredEventId != null && recoveredEventId != lastEventIdForSync) {
+            lastEventIdForSync = recoveredEventId
+            preferences().edit().putString(PREF_LAST_SYNC_EVENT_ID, recoveredEventId).apply()
+            Log.i(TAG, "Syncable READY event recovered from service: eventId=$recoveredEventId")
+        }
+        val eventId = lastEventIdForSync
+        val extractionState = eventId?.let { binder?.eventMediaExtractionState(it) }
+        val syncState = eventId?.let { binder?.eventMediaSyncState(it) }
+        if (syncState != null && (syncState != syncUiState.state || eventId != lastPropagatedSyncEventId)) {
+            syncUiState = EventMediaSyncUiState(syncState, null)
+            lastPropagatedSyncEventId = eventId
+            Log.i(TAG, "Sync state propagated to GatewayActivity: eventId=$eventId state=$syncState")
+        }
+        return GatewaySyncPresentation(eventId, extractionState, syncState, binder != null)
+    }
+
+    private fun logSyncUiDecision(presentation: GatewaySyncPresentation) {
+        val diagnostic = "eventId=${presentation.eventId}; extraction=${presentation.extractionState}; " +
+            "sync=${presentation.syncState}; visible=${presentation.buttonVisible}; " +
+            "enabled=${presentation.buttonEnabled}; reason=${presentation.reason}"
+        if (diagnostic != lastSyncUiDiagnostic) {
+            lastSyncUiDiagnostic = diagnostic
+            Log.i(TAG, "SYNC EVENT render: $diagnostic")
+        }
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     companion object {
@@ -490,6 +586,7 @@ class GatewayActivity : Activity() {
         private const val PREF_LAST_ENDPOINT = "last_rtsp_endpoint"
         private const val PREF_LAST_TELEMETRY_ENDPOINT = "last_telemetry_endpoint"
         private const val PREF_LAST_CONTROL_ENDPOINT = "last_control_endpoint"
+        private const val PREF_LAST_SYNC_EVENT_ID = "last_sync_event_id"
         private const val STATUS_REFRESH_MILLIS = 500L
         private const val EVENT_STATUS_REFRESH_MILLIS = 1_500L
         private const val TAG = "GatewayActivity"

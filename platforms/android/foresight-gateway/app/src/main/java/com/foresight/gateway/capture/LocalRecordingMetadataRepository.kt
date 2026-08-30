@@ -1,5 +1,6 @@
 package com.foresight.gateway.capture
 
+import android.util.Log
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -23,6 +24,13 @@ internal enum class EventMediaExtractionState {
     PENDING,
     EXTRACTING,
     READY,
+    FAILED,
+}
+
+enum class EventMediaSyncState {
+    LOCAL_ONLY,
+    UPLOADING,
+    SYNCED,
     FAILED,
 }
 
@@ -83,6 +91,15 @@ internal data class EventMediaMetadata(
     val audioPresent: Boolean? = null,
     val extractionState: EventMediaExtractionState = EventMediaExtractionState.PENDING,
     val failureDetail: String? = null,
+    val syncState: EventMediaSyncState = EventMediaSyncState.LOCAL_ONLY,
+    val syncDetail: String? = null,
+)
+
+internal data class EventMediaSyncPlan(
+    val media: EventMediaMetadata,
+    val event: LocalEventMapping,
+    val recording: LocalRecordingMetadata,
+    val privateFile: File,
 )
 
 internal fun interface LocalRecordingRepositoryLogger {
@@ -278,6 +295,10 @@ internal class LocalRecordingMetadataRepository(
         )
         ledger = ledger.copy(eventMedia = ledger.eventMedia + (ready.eventId to ready))
         persist(ledger)
+        logInfo(
+            "Event-media sync state initialized: eventId=${ready.eventId} " +
+                "extractionState=${ready.extractionState} syncState=${ready.syncState}",
+        )
         return ready
     }
 
@@ -299,6 +320,63 @@ internal class LocalRecordingMetadataRepository(
         persist(ledger)
         return failed
     }
+
+    @Synchronized
+    fun beginEventMediaSync(eventId: String): EventMediaSyncPlan {
+        val media = requireNotNull(ledger.eventMedia[eventId]) { "event media metadata does not exist" }
+        require(media.extractionState == EventMediaExtractionState.READY) {
+            "only READY event media may sync"
+        }
+        require(
+            media.actualStartOffsetMillis != null && media.actualEndOffsetMillis != null &&
+                media.outputDurationMillis != null && media.audioPresent != null
+        ) { "READY event media is missing extraction timing metadata" }
+        require(media.syncState != EventMediaSyncState.UPLOADING) { "event media sync is already active" }
+        val event = requireNotNull(ledger.events[eventId]) { "event mapping does not exist" }
+        require(event.observedEndUtc != null) { "READY event mapping is missing its end boundary" }
+        val recording = requireNotNull(ledger.recordings[media.recordingId]) { "recording metadata does not exist" }
+        val file = eventMediaFile(media.outputFileName)
+        require(file.isFile && file.length() == media.outputByteSize && sha256(file) == media.outputSha256) {
+            "READY event media is missing or no longer matches durable metadata"
+        }
+        val uploading = media.copy(syncState = EventMediaSyncState.UPLOADING, syncDetail = null)
+        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to uploading))
+        persist(ledger)
+        return EventMediaSyncPlan(uploading, event, recording, file)
+    }
+
+    @Synchronized
+    fun completeEventMediaSync(eventId: String, detail: String = "verified by laptop"): EventMediaMetadata {
+        val current = requireNotNull(ledger.eventMedia[eventId]) { "event media metadata does not exist" }
+        require(current.syncState == EventMediaSyncState.UPLOADING) { "event media sync is not active" }
+        val synced = current.copy(syncState = EventMediaSyncState.SYNCED, syncDetail = detail)
+        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to synced))
+        persist(ledger)
+        return synced
+    }
+
+    @Synchronized
+    fun failEventMediaSync(eventId: String, detail: String): EventMediaMetadata? {
+        val current = ledger.eventMedia[eventId] ?: return null
+        if (current.extractionState != EventMediaExtractionState.READY) return current
+        val failed = current.copy(syncState = EventMediaSyncState.FAILED, syncDetail = detail)
+        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to failed))
+        persist(ledger)
+        return failed
+    }
+
+    @Synchronized
+    fun eventMediaSyncState(eventId: String): EventMediaSyncState? = ledger.eventMedia[eventId]?.syncState
+
+    @Synchronized
+    fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
+        ledger.eventMedia[eventId]?.extractionState
+
+    @Synchronized
+    fun latestSyncableEventId(): String? = ledger.eventMedia.values
+        .filter { it.extractionState == EventMediaExtractionState.READY }
+        .maxByOrNull { media -> ledger.events[media.eventId]?.observedEndUtc ?: Instant.EPOCH }
+        ?.eventId
 
     @Synchronized
     fun readyEventIdsForRecording(recordingId: String): List<String> = ledger.events.values
@@ -353,6 +431,11 @@ internal class LocalRecordingMetadataRepository(
                     extractionState = EventMediaExtractionState.FAILED,
                     failureDetail = "process ended during event-media extraction",
                 )
+            } else if (media.syncState == EventMediaSyncState.UPLOADING) {
+                media.copy(
+                    syncState = EventMediaSyncState.FAILED,
+                    syncDetail = "process ended during event-media upload",
+                )
             } else {
                 media
             }
@@ -371,6 +454,11 @@ internal class LocalRecordingMetadataRepository(
             logger.warn("Local recording metadata is malformed; the original ledger was preserved.", error)
             LocalRecordingLedger()
         }
+    }
+
+    private fun logInfo(message: String) {
+        // android.util.Log is unavailable in local JVM unit tests.
+        runCatching { Log.i(TAG, message) }
     }
 
     private fun persist(value: LocalRecordingLedger) {
@@ -405,6 +493,11 @@ internal class LocalRecordingMetadataRepository(
     private fun recordingFile(fileName: String): File {
         validateFileName(fileName)
         return File(recordingsDirectory, fileName)
+    }
+
+    private fun eventMediaFile(fileName: String): File {
+        validateFileName(fileName)
+        return File(File(metadataDirectory.parentFile, "event_media"), fileName)
     }
 
     private fun validateFileName(fileName: String) {
@@ -505,6 +598,8 @@ internal class LocalRecordingMetadataRepository(
         put("audio_present", audioPresent)
         put("extraction_state", extractionState.name)
         put("failure_detail", failureDetail)
+        put("sync_state", syncState.name)
+        put("sync_detail", syncDetail)
     }
 
     private fun JSONObject.toRecording(): LocalRecordingMetadata = LocalRecordingMetadata(
@@ -564,6 +659,9 @@ internal class LocalRecordingMetadataRepository(
         audioPresent = optNullableBoolean("audio_present"),
         extractionState = EventMediaExtractionState.valueOf(getString("extraction_state")),
         failureDetail = optNullableString("failure_detail"),
+        syncState = optNullableString("sync_state")?.let(EventMediaSyncState::valueOf)
+            ?: EventMediaSyncState.LOCAL_ONLY,
+        syncDetail = optNullableString("sync_detail"),
     )
 
     private fun JSONObject.optNullableString(name: String): String? =
@@ -579,6 +677,7 @@ internal class LocalRecordingMetadataRepository(
         List(length()) { index -> mapper(getJSONObject(index)) }
 
     private companion object {
+        const val TAG = "LocalRecordingMetadata"
         const val LEDGER_FILE_NAME = "local-recording-ledger.json"
         const val HASH_BUFFER_BYTES = 64 * 1024
         const val ANDROID_REMUX_METHOD = "android_mediaextractor_mediummuxer_remux"

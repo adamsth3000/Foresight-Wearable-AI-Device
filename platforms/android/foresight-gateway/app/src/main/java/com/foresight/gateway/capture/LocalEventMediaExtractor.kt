@@ -77,7 +77,7 @@ internal class LocalEventMediaExtractor(
             promote(partial, final)
             val outputSize = final.length()
             require(outputSize > 0L) { "promoted event media is empty" }
-            repository.completeEventMediaExtraction(
+            val ready = repository.completeEventMediaExtraction(
                 plan = plan,
                 actualStartOffsetMillis = result.actualStartOffsetMillis,
                 actualEndOffsetMillis = result.actualEndOffsetMillis,
@@ -86,7 +86,11 @@ internal class LocalEventMediaExtractor(
                 videoPresent = result.videoPresent,
                 audioPresent = result.audioPresent,
             )
-            Log.i(TAG, "Event media READY: eventId=${plan.eventId} output=${final.name}")
+            Log.i(
+                TAG,
+                "Event media READY: eventId=${plan.eventId} output=${final.name} " +
+                    "syncState=${ready.syncState}",
+            )
         } catch (error: Exception) {
             if (partial.exists() && !partial.delete()) {
                 Log.w(TAG, "Unable to remove invalid partial event media: ${partial.name}")

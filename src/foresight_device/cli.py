@@ -17,6 +17,7 @@ from foresight_device.capture import (
     FfmpegRtspIngress,
     MediaSegment,
     MediaSourceDescriptor,
+    PhoneMediaIngestService,
     RollingBuffer,
     SessionTelemetryStore,
     TelemetryReceiver,
@@ -466,6 +467,7 @@ def run_capture_cli(
                 telemetry_host,
                 telemetry_port,
                 EventControlService(event_service),
+                PhoneMediaIngestService(data_root / "events"),
             )
             telemetry_receiver.start()
         except OSError as exc:
@@ -491,7 +493,7 @@ def run_capture_cli(
         )
         output_stream.write(
             "Event control: POST /events/start, /events/end, /events/quick; "
-            "GET /events/status.\n"
+            "GET /events/status; POST /events/<event_id>/phone-media.\n"
         )
     output_stream.flush()
     try:

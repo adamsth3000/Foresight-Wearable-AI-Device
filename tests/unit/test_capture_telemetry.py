@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,6 +16,7 @@ from foresight_device.capture import (
     SessionTelemetryStore,
     TelemetryReceiver,
 )
+from foresight_device.capture.phone_media import PhoneMediaIngestService
 from foresight_device.capture.telemetry import TelemetryProtocolError
 
 
@@ -164,6 +166,53 @@ def test_receiver_exposes_authoritative_bounded_event_controls(tmp_path: Path) -
     assert idle == {"state": "idle", "event_id": None, "pending_events": 0}
 
 
+def test_receiver_streams_phone_media_to_the_existing_private_listener(tmp_path: Path) -> None:
+    event_id = "c4426cce-1ac2-47d6-9e9f-0c8d5c9e0543"
+    events_root = tmp_path / "events"
+    event_dir = events_root / event_id
+    event_dir.mkdir(parents=True)
+    (event_dir / "event.mp4").write_bytes(b"network")
+    (event_dir / "manifest.json").write_text(
+        json.dumps({"event_id": event_id, "media": {"filename": "event.mp4", "sha256": "network"}})
+    )
+    store = SessionTelemetryStore(tmp_path / "sessions", "capture-1")
+    media = b"phone-media"
+    receiver = TelemetryReceiver(
+        store,
+        "127.0.0.1",
+        0,
+        phone_media_service=PhoneMediaIngestService(
+            events_root, probe_media=lambda _path: _phone_probe()
+        ),
+    )
+    receiver.start()
+    try:
+        request = Request(
+            f"http://127.0.0.1:{receiver.port}/events/{event_id}/phone-media",
+            data=media,
+            method="POST",
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Foresight-Source-Session-Id": "phone-session",
+                "X-Foresight-Recording-Id": "recording-1",
+                "X-Foresight-Media-Length": str(len(media)),
+                "X-Foresight-Media-Sha256": hashlib.sha256(media).hexdigest(),
+                "X-Foresight-Observed-Start-Utc": "2026-08-30T12:00:00+00:00",
+                "X-Foresight-Observed-End-Utc": "2026-08-30T12:00:02+00:00",
+                "X-Foresight-Start-Offset-Ms": "0",
+                "X-Foresight-End-Offset-Ms": "2000",
+                "X-Foresight-Output-Duration-Ms": "2000",
+                "X-Foresight-Audio-Present": "true",
+            },
+        )
+        with urlopen(request, timeout=3) as response:  # noqa: S310 - loopback receiver test
+            payload = json.loads(response.read())
+    finally:
+        receiver.stop()
+    assert payload["state"] == "synced"
+    assert (event_dir / "phone_media" / "authoritative.mp4").read_bytes() == media
+
+
 def test_event_copies_only_sensor_records_in_actual_media_window(tmp_path: Path) -> None:
     store = SessionTelemetryStore(tmp_path / "sessions", "capture-1")
     store.bind(_bind_payload())
@@ -233,3 +282,10 @@ def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
 def _get_json(url: str) -> dict[str, object]:
     with urlopen(url, timeout=3) as response:  # noqa: S310 - loopback test server
         return json.loads(response.read())
+
+
+def _phone_probe() -> dict[str, object]:
+    return {
+        "format": {"duration": "2.0", "format_name": "mp4"},
+        "streams": [{"codec_type": "video"}, {"codec_type": "audio"}],
+    }

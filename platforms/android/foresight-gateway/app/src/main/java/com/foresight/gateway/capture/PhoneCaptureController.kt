@@ -37,6 +37,7 @@ class PhoneCaptureController(
         },
     )
     private val eventMediaExtractor = LocalEventMediaExtractor(applicationContext, recordingRepository)
+    private val eventMediaSyncClient = EventMediaSyncClient(recordingRepository)
     private val state = CaptureControllerState()
     private val eventMapper = LocalRecordingEventMapper()
     @Volatile
@@ -171,6 +172,22 @@ class PhoneCaptureController(
         recordingRepository.recordAuthoritativeEnd(start, end)
         Log.i(TAG, "Authoritative event END received: eventId=$eventId recordingId=${end.recordingId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${end.recordingOffsetMillis}")
     }
+
+    fun syncReadyEventMedia(
+        eventId: String,
+        controlEndpoint: String,
+        callback: (EventMediaSyncUiState) -> Unit,
+    ) {
+        eventMediaSyncClient.sync(eventId, controlEndpoint, callback)
+    }
+
+    fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
+        recordingRepository.eventMediaSyncState(eventId)
+
+    internal fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
+        recordingRepository.eventMediaExtractionState(eventId)
+
+    fun latestSyncableEventId(): String? = recordingRepository.latestSyncableEventId()
 
     @Synchronized
     override fun onLifecycleChanged(lifecycle: StreamLifecycle, detail: String?) {

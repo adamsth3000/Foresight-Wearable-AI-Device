@@ -9,9 +9,11 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, cast
 
 from foresight_device.core.logging import get_logger
+
+from .phone_media import PhoneMediaIngestError, PhoneMediaIngestService
 
 LOGGER = get_logger(__name__)
 
@@ -151,9 +153,12 @@ class TelemetryReceiver:
         host: str = "0.0.0.0",
         port: int = 8766,
         control_service: Any | None = None,
+        phone_media_service: PhoneMediaIngestService | None = None,
     ) -> None:
         self.store = store
-        self._server = ThreadingHTTPServer((host, port), _handler_for(store, control_service))
+        self._server = ThreadingHTTPServer(
+            (host, port), _handler_for(store, control_service, phone_media_service)
+        )
         self._thread: threading.Thread | None = None
 
     @property
@@ -194,7 +199,9 @@ def copy_event_sensor_records(
 
 
 def _handler_for(
-    store: SessionTelemetryStore, control: Any | None = None
+    store: SessionTelemetryStore,
+    control: Any | None = None,
+    phone_media: PhoneMediaIngestService | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     class TelemetryHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - HTTP handler API
@@ -211,6 +218,38 @@ def _handler_for(
 
         def do_POST(self) -> None:  # noqa: N802 - HTTP handler API
             try:
+                if (
+                    phone_media is not None
+                    and self.path.startswith("/events/")
+                    and self.path.endswith("/phone-media")
+                ):
+                    event_id = (
+                        self.path.removeprefix("/events/").removesuffix("/phone-media").strip("/")
+                    )
+                    content_type = (
+                        self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+                    )
+                    if content_type != "application/octet-stream":
+                        raise PhoneMediaIngestError(
+                            "phone-media uploads require application/octet-stream"
+                        )
+                    result = phone_media.ingest(
+                        event_id,
+                        dict(self.headers.items()),
+                        cast(BinaryIO, self.rfile),
+                    )
+                    _write_response(
+                        self,
+                        HTTPStatus.OK,
+                        {
+                            "state": result.state,
+                            "event_id": result.event_id,
+                            "sha256": result.sha256,
+                            "byte_size": result.byte_size,
+                            "idempotent": result.idempotent,
+                        },
+                    )
+                    return
                 payload = _read_payload(self)
                 if self.path == "/v1/bind":
                     _write_response(self, HTTPStatus.OK, store.bind(payload))
@@ -228,6 +267,8 @@ def _handler_for(
                     _write_response(self, HTTPStatus.ACCEPTED, control.quick())
                 else:
                     _write_response(self, HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
+            except PhoneMediaIngestError as exc:
+                _write_response(self, HTTPStatus(exc.status_code), {"error": str(exc)})
             except (TelemetryProtocolError, RuntimeError, json.JSONDecodeError) as exc:
                 _write_response(self, HTTPStatus.BAD_REQUEST, {"error": str(exc)})
 

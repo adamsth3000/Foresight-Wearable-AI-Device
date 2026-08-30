@@ -191,10 +191,13 @@ class LocalRecordingMetadataRepositoryTest {
         )
 
         assertEquals(EventMediaExtractionState.READY, ready.extractionState)
+        assertEquals(EventMediaSyncState.LOCAL_ONLY, ready.syncState)
         assertEquals(800L, ready.boundaryAdjustmentStartMillis)
         assertEquals(900L, ready.boundaryAdjustmentEndMillis)
         assertEquals(4_100L, ready.outputDurationMillis)
         assertTrue(repository.beginEventMediaExtraction("event-1") is EventMediaExtractionDecision.ExistingReady)
+        assertEquals("event-1", repository(root).latestSyncableEventId())
+        assertEquals(EventMediaSyncState.LOCAL_ONLY, repository(root).eventMediaSyncState("event-1"))
     }
 
     @Test
@@ -271,6 +274,33 @@ class LocalRecordingMetadataRepositoryTest {
         assertTrue(decision is EventMediaExtractionDecision.Rejected)
         assertEquals(EventMediaExtractionState.FAILED, repository.snapshot().eventMedia.getValue("event-1").extractionState)
         assertTrue(repository.snapshot().eventMedia.getValue("event-1").failureDetail.orEmpty().contains("file is missing"))
+    }
+
+    @Test
+    fun `only READY event media can transition through persisted sync states`() {
+        val root = temporaryRoot()
+        val repository = readyRepository(root)
+        assertThrows(IllegalArgumentException::class.java) { repository.beginEventMediaSync("event-1") }
+
+        val plan = repository.beginEventMediaExtraction("event-1") as EventMediaExtractionDecision.Extract
+        val output = File(File(root, "event_media"), plan.plan.outputFileName)
+        requireNotNull(output.parentFile).mkdirs()
+        output.writeText("private extracted event media")
+        val sha256 = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(output.readBytes()).joinToString("") { "%02x".format(it) }
+        repository.completeEventMediaExtraction(
+            plan.plan, 1_000L, 5_000L, output.length(), sha256, videoPresent = true, audioPresent = true,
+        )
+
+        val sync = repository.beginEventMediaSync("event-1")
+        assertEquals(EventMediaSyncState.UPLOADING, repository.snapshot().eventMedia.getValue("event-1").syncState)
+        assertTrue(sync.privateFile.exists())
+        repository.failEventMediaSync("event-1", "offline")
+        assertEquals(EventMediaSyncState.FAILED, repository.snapshot().eventMedia.getValue("event-1").syncState)
+        repository.beginEventMediaSync("event-1")
+        repository.completeEventMediaSync("event-1")
+        assertEquals(EventMediaSyncState.SYNCED, repository(root).snapshot().eventMedia.getValue("event-1").syncState)
+        assertTrue(output.exists())
     }
 
     private fun repository(
