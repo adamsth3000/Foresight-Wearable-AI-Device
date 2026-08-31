@@ -1,6 +1,8 @@
 package com.foresight.gateway.capture
 
 import android.content.Context
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 import android.view.SurfaceView
 import com.foresight.gateway.metadata.CaptureSessionMetadata
@@ -11,6 +13,7 @@ import com.foresight.gateway.transport.StreamLifecycle
 import org.json.JSONObject
 import java.time.Instant
 import java.io.File
+import java.util.UUID
 
 /** Coordinates a source-neutral phone capture session without owning Android UI. */
 class PhoneCaptureController(
@@ -26,9 +29,12 @@ class PhoneCaptureController(
     }
 
     private val applicationContext = context.applicationContext
+    // All RootEncoder and recorder ownership mutations are serialized away from the UI looper.
+    private val captureWorkerThread = HandlerThread("ForesightCaptureWorker").apply { start() }
+    private val captureWorker = Handler(captureWorkerThread.looper)
     private var telemetry = newTelemetryClient()
     private var sensors = newSensorCapture(telemetry)
-    private val publisher = RtspPublisher(context, this)
+    private val publisher = RtspPublisher(context, this, captureWorker)
     private val recordingRepository = LocalRecordingMetadataRepository(
         metadataDirectory = File(applicationContext.filesDir, "recording_metadata"),
         recordingsDirectory = File(applicationContext.filesDir, "recordings"),
@@ -51,8 +57,12 @@ class PhoneCaptureController(
         eventMediaExtractor.enqueueRecoverableEvents()
     }
 
-    fun start(endpoint: String, telemetryEndpoint: String): Boolean {
-        require(endpoint.startsWith("rtsp://")) { "The endpoint must use rtsp://" }
+    fun start(endpoint: String?, telemetryEndpoint: String) {
+        captureWorker.post { startOnCaptureWorker(endpoint, telemetryEndpoint) }
+    }
+
+    private fun startOnCaptureWorker(endpoint: String?, telemetryEndpoint: String): Boolean {
+        require(endpoint.isNullOrBlank() || endpoint.startsWith("rtsp://")) { "The endpoint must use rtsp://" }
         val session: CaptureSessionMetadata
         synchronized(this) {
             val rejection = state.startRejectionReason()
@@ -69,7 +79,7 @@ class PhoneCaptureController(
             }
             state.beginStartDispatch()
             // This is provisional until the publisher synchronously reports PREPARING.
-            session = CaptureSessionMetadata(streamEndpoint = endpoint)
+            session = CaptureSessionMetadata(streamEndpoint = endpoint.orEmpty())
             activeSession = session
             Log.i(TAG, "Capture start dispatch accepted: generation=${publisher.generation()}.")
         }
@@ -138,39 +148,122 @@ class PhoneCaptureController(
             listener.onCaptureStateChanged(transportLifecycle, activeSession, detail)
         }
 
-    @Synchronized
     fun stop() {
+        captureWorker.post { stopOnCaptureWorker() }
+    }
+
+    private fun stopOnCaptureWorker() {
         if (state.lifecycle == StreamLifecycle.IDLE && !state.hasActiveSession) {
             Log.i(TAG, "Capture stop ignored: controller is already IDLE.")
             return
         }
         Log.i(TAG, "Capture stop requested: controllerState=${state.lifecycle}, publisherGeneration=${publisher.generation()}.")
+        completeActiveFieldEventForCaptureStop()
         sensors.stop()
         telemetry.stop()
         publisher.stop()
     }
 
     fun attachPreview(surfaceView: SurfaceView) {
-        publisher.attachPreview(surfaceView)
+        captureWorker.post { publisher.attachPreview(surfaceView) }
     }
 
     fun detachPreview(surfaceView: SurfaceView) {
-        publisher.detachPreview(surfaceView)
+        captureWorker.post { publisher.detachPreview(surfaceView) }
     }
 
-    @Synchronized
     fun authoritativeEventStarted(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
-        val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
-        val boundary = eventMapper.start(eventId, context, receiptUtc, receiptMonotonicMillis)
-        recordingRepository.recordAuthoritativeStart(boundary)
-        Log.i(TAG, "Authoritative event START received: eventId=$eventId recordingId=${boundary.recordingId} sourceSessionId=${context.sourceSessionId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${boundary.recordingOffsetMillis}")
+        captureWorker.post {
+            runCatching {
+                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val boundary = eventMapper.start(eventId, context, receiptUtc, receiptMonotonicMillis)
+                recordingRepository.recordAuthoritativeStart(boundary)
+                Log.i(TAG, "Authoritative event START received: eventId=$eventId recordingId=${boundary.recordingId} sourceSessionId=${context.sourceSessionId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${boundary.recordingOffsetMillis}")
+            }.onFailure { Log.w(TAG, "Authoritative event START rejected: ${it.message}") }
+        }
     }
 
-    @Synchronized
     fun authoritativeEventEnded(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
-        val (start, end) = eventMapper.end(eventId, requireNotNull(publisher.localRecordingContext()) { "no active local recording" }, receiptUtc, receiptMonotonicMillis)
-        recordingRepository.recordAuthoritativeEnd(start, end)
-        Log.i(TAG, "Authoritative event END received: eventId=$eventId recordingId=${end.recordingId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${end.recordingOffsetMillis}")
+        captureWorker.post {
+            runCatching {
+                val (start, end) = eventMapper.end(eventId, requireNotNull(publisher.localRecordingContext()) { "no active local recording" }, receiptUtc, receiptMonotonicMillis)
+                recordingRepository.recordAuthoritativeEnd(start, end)
+                Log.i(TAG, "Authoritative event END received: eventId=$eventId recordingId=${end.recordingId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${end.recordingOffsetMillis}")
+            }.onFailure { Log.w(TAG, "Authoritative event END rejected: ${it.message}") }
+        }
+    }
+
+    internal fun startFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+        captureWorker.post {
+            val result = runCatching {
+                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val boundary = eventMapper.boundary(
+                    UUID.randomUUID().toString(),
+                    context,
+                    Instant.now(),
+                    android.os.SystemClock.elapsedRealtime(),
+                )
+                recordingRepository.recordFieldStart(boundary)
+            }
+            result.onSuccess { event ->
+                Log.i(TAG, "FIELD event START persisted: eventId=${event.eventId} recordingId=${event.recordingId} offsetMs=${event.startOffsetMillis}")
+            }.onFailure { error ->
+                Log.w(TAG, "FIELD event START rejected: ${error.message}", error)
+            }
+            callback(result)
+        }
+    }
+
+    internal fun endFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+        captureWorker.post {
+            val result = runCatching {
+                val active = requireNotNull(recordingRepository.activeFieldEvent()) { "no active FIELD event" }
+                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val end = eventMapper.boundary(
+                    active.eventId,
+                    context,
+                    Instant.now(),
+                    android.os.SystemClock.elapsedRealtime(),
+                )
+                recordingRepository.completeFieldEvent(
+                    active.eventId,
+                    end,
+                    LocalEventTerminationReason.USER_END,
+                )
+            }
+            result.onSuccess { event ->
+                Log.i(TAG, "FIELD event END persisted: eventId=${event.eventId} durationMs=${event.durationMillis}")
+            }.onFailure { error ->
+                Log.w(TAG, "FIELD event END rejected: ${error.message}", error)
+            }
+            callback(result)
+        }
+    }
+
+    internal fun activeFieldEvent(callback: (LocalEventMapping?) -> Unit) {
+        captureWorker.post { callback(recordingRepository.activeFieldEvent()) }
+    }
+
+    private fun completeActiveFieldEventForCaptureStop() {
+        val active = recordingRepository.activeFieldEvent() ?: return
+        runCatching {
+            val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+            val end = eventMapper.boundary(
+                active.eventId,
+                context,
+                Instant.now(),
+                android.os.SystemClock.elapsedRealtime(),
+            )
+            recordingRepository.completeFieldEvent(
+                active.eventId,
+                end,
+                LocalEventTerminationReason.CAPTURE_STOP,
+            )
+        }.onSuccess { event ->
+            Log.i(TAG, "FIELD event closed for capture stop: eventId=${event.eventId} durationMs=${event.durationMillis}")
+        }.onFailure { error ->
+            Log.e(TAG, "Unable to close FIELD event for capture stop: eventId=${active.eventId}", error)
+        }
     }
 
     fun syncReadyEventMedia(
@@ -181,6 +274,13 @@ class PhoneCaptureController(
         eventMediaSyncClient.sync(eventId, controlEndpoint, callback)
     }
 
+    fun syncAllReadyEventMedia(
+        controlEndpoint: String,
+        callback: (eventId: String, state: EventMediaSyncUiState, completed: Int, total: Int) -> Unit,
+    ) {
+        eventMediaSyncClient.syncAll(recordingRepository.syncableEventIds(), controlEndpoint, callback)
+    }
+
     fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
         recordingRepository.eventMediaSyncState(eventId)
 
@@ -189,7 +289,12 @@ class PhoneCaptureController(
 
     fun latestSyncableEventId(): String? = recordingRepository.latestSyncableEventId()
 
-    @Synchronized
+    internal fun syncHistory(): List<EventMediaSyncHistoryEntry> = recordingRepository.syncHistory()
+
+    internal fun syncSummary(): EventMediaSyncSummary = recordingRepository.syncSummary()
+
+    internal fun syncableEventIds(): List<String> = recordingRepository.syncableEventIds()
+
     override fun onLifecycleChanged(lifecycle: StreamLifecycle, detail: String?) {
         // Clear ownership before publishing IDLE so a UI-enabled second START cannot observe
         // a stale controller session while the replacement publisher is already idle.
@@ -301,7 +406,6 @@ class PhoneCaptureController(
             }
     }
 
-    @Synchronized
     fun startDiagnostics(): String =
         "controllerState=${state.lifecycle}, hasActiveSession=${state.hasActiveSession}, " +
             "dispatchInFlight=${state.startDispatchInFlight}, " +

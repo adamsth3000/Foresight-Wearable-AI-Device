@@ -14,6 +14,7 @@ import android.util.Log
 import android.view.SurfaceView
 import com.foresight.gateway.R
 import com.foresight.gateway.metadata.CaptureSessionMetadata
+import com.foresight.gateway.mode.GatewayOperatingMode
 import com.foresight.gateway.transport.StreamLifecycle
 
 /** User-started foreground service that keeps camera and microphone capture visible. */
@@ -21,6 +22,8 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
     private lateinit var controller: PhoneCaptureController
     @Volatile
     private var authoritativeEventState: String = "idle"
+    @Volatile
+    private var operatingMode = GatewayOperatingMode.LAB
 
     override fun onCreate() {
         super.onCreate()
@@ -32,28 +35,27 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         when (intent?.action) {
             ACTION_START -> {
                 startAsForeground("Preparing capture")
-                val endpoint = intent.requireEndpoint()
+                val mode = intent.operatingMode()
+                operatingMode = mode
+                val endpoint = intent.captureEndpoint(mode)
                 Log.i(
                     TAG,
-                    "Capture start requested: rtsp=$endpoint; ${controller.startDiagnostics()}; " +
+                    "Capture start requested: mode=$mode rtsp=${endpoint ?: "not configured"}; ${controller.startDiagnostics()}; " +
                         "invoking PhoneCaptureController.start().",
                 )
-                runCatching { controller.start(endpoint, intent.telemetryEndpoint()) }
-                    .onSuccess { accepted ->
-                        if (!accepted) Log.w(TAG, "Capture start was rejected: ${controller.startDiagnostics()}.")
-                    }
-                    .onFailure { onCaptureStateChanged(StreamLifecycle.ERROR, null, it.message) }
+                // Controller dispatches RootEncoder preparation to its serialized capture worker.
+                controller.start(endpoint, intent.telemetryEndpoint())
             }
 
             ACTION_STOP -> {
-                if (CaptureEventInterlock.blocksCaptureStop(authoritativeEventState)) {
+                if (operatingMode == GatewayOperatingMode.LAB && CaptureEventInterlock.blocksCaptureStop(authoritativeEventState)) {
                     onCaptureStateChanged(
                         currentStatus.lifecycle,
                         currentStatus.metadata,
                         "End the active event before stopping capture.",
                     )
                 } else {
-                    controller.stop()
+            controller.stop()
                 }
             }
         }
@@ -91,12 +93,31 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
                 .onFailure { Log.w(TAG, "Authoritative event END rejected: ${it.message}") }
         }
 
+        internal fun startFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+            controller.startFieldEvent(callback)
+        }
+
+        internal fun endFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+            controller.endFieldEvent(callback)
+        }
+
+        internal fun activeFieldEvent(callback: (LocalEventMapping?) -> Unit) {
+            controller.activeFieldEvent(callback)
+        }
+
         fun syncReadyEventMedia(
             eventId: String,
             controlEndpoint: String,
             callback: (EventMediaSyncUiState) -> Unit,
         ) {
             controller.syncReadyEventMedia(eventId, controlEndpoint, callback)
+        }
+
+        fun syncAllReadyEventMedia(
+            controlEndpoint: String,
+            callback: (eventId: String, state: EventMediaSyncUiState, completed: Int, total: Int) -> Unit,
+        ) {
+            controller.syncAllReadyEventMedia(controlEndpoint, callback)
         }
 
         fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
@@ -106,6 +127,12 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
             controller.eventMediaExtractionState(eventId)
 
         fun latestSyncableEventId(): String? = controller.latestSyncableEventId()
+
+        internal fun syncHistory(): List<EventMediaSyncHistoryEntry> = controller.syncHistory()
+
+        internal fun syncSummary(): EventMediaSyncSummary = controller.syncSummary()
+
+        internal fun syncableEventIds(): List<String> = controller.syncableEventIds()
     }
 
     override fun onCaptureStateChanged(
@@ -189,8 +216,17 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
             0
         }
 
-    private fun Intent.requireEndpoint(): String =
-        getStringExtra(EXTRA_ENDPOINT) ?: error("An RTSP endpoint is required.")
+    private fun Intent.captureEndpoint(mode: GatewayOperatingMode): String? {
+        val endpoint = getStringExtra(EXTRA_ENDPOINT)?.trim().orEmpty()
+        return when {
+            endpoint.isNotEmpty() -> endpoint
+            mode == GatewayOperatingMode.FIELD -> null
+            else -> error("An RTSP endpoint is required in Lab mode.")
+        }
+    }
+
+    private fun Intent.operatingMode(): GatewayOperatingMode =
+        GatewayOperatingMode.restore(getStringExtra(EXTRA_OPERATING_MODE))
 
     private fun Intent.telemetryEndpoint(): String = getStringExtra(EXTRA_TELEMETRY_ENDPOINT).orEmpty()
 
@@ -199,6 +235,7 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         const val ACTION_STOP = "com.foresight.gateway.action.STOP_CAPTURE"
         const val EXTRA_ENDPOINT = "com.foresight.gateway.extra.RTSP_ENDPOINT"
         const val EXTRA_TELEMETRY_ENDPOINT = "com.foresight.gateway.extra.TELEMETRY_ENDPOINT"
+        const val EXTRA_OPERATING_MODE = "com.foresight.gateway.extra.OPERATING_MODE"
 
         private const val NOTIFICATION_CHANNEL_ID = "foresight_capture"
         private const val NOTIFICATION_ID = 1001

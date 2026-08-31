@@ -41,6 +41,11 @@ class PhoneMediaUploadMetadata:
     end_offset_ms: int
     output_duration_ms: int
     audio_present: bool
+    event_origin: str = "laptop_control"
+    event_authority: str = "LAPTOP"
+    termination_reason: str | None = None
+    capture_generation: int | None = None
+    source_recording_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +62,7 @@ ProbeMedia = Callable[[Path], Mapping[str, Any]]
 
 
 class PhoneMediaIngestService:
-    """Accept one verified phone MP4 into an existing laptop event directory.
+    """Accept one verified phone MP4 into a laptop event directory.
 
     The upload is a raw ``application/octet-stream`` request. Metadata is deliberately kept in
     explicit headers so both peers can stream the media rather than buffering a multipart body.
@@ -87,7 +92,14 @@ class PhoneMediaIngestService:
         metadata = self._parse_metadata(event_id, headers)
         event_dir = self._event_dir(metadata.event_id)
         manifest_path = event_dir / "manifest.json"
-        if not manifest_path.is_file():
+        new_phone_field_event = (
+            metadata.event_origin == "phone_field" and not manifest_path.is_file()
+        )
+        if new_phone_field_event:
+            if event_dir.exists() and not self._is_empty_field_staging_directory(event_dir):
+                raise PhoneMediaIngestError("phone-field event directory is incomplete", 409)
+            event_dir.mkdir(parents=True, exist_ok=True)
+        elif not manifest_path.is_file():
             raise PhoneMediaIngestError("event does not exist", 404)
         content_length = self._content_length(headers)
         if content_length != metadata.byte_size:
@@ -131,7 +143,13 @@ class PhoneMediaIngestService:
             self._promote(partial_path, final_path)
             persisted = self._metadata_payload(metadata, final_path, probe)
             self._write_json_atomically(metadata_path, persisted)
-            self._update_manifest(manifest_path, persisted)
+            if new_phone_field_event:
+                self._write_json_atomically(
+                    manifest_path,
+                    self._phone_field_manifest(metadata, persisted),
+                )
+            else:
+                self._update_manifest(manifest_path, persisted)
             LOGGER.info(
                 "phone media promoted event_id=%s sha256=%s bytes=%d",
                 metadata.event_id,
@@ -153,6 +171,17 @@ class PhoneMediaIngestService:
             raise PhoneMediaIngestError("event path escapes the event directory")
         return candidate
 
+    @staticmethod
+    def _is_empty_field_staging_directory(event_dir: Path) -> bool:
+        """Allow a retry after a rejected upload without accepting arbitrary existing data."""
+        entries = list(event_dir.iterdir())
+        return not entries or (
+            len(entries) == 1
+            and entries[0].name == "phone_media"
+            and entries[0].is_dir()
+            and not any(entries[0].iterdir())
+        )
+
     def _parse_metadata(
         self, event_id: str, headers: Mapping[str, str]
     ) -> PhoneMediaUploadMetadata:
@@ -168,6 +197,31 @@ class PhoneMediaIngestService:
         _parse_utc(end, "X-Foresight-Observed-End-Utc")
         start_offset = _header_int(headers, "X-Foresight-Start-Offset-Ms", minimum=0)
         end_offset = _header_int(headers, "X-Foresight-End-Offset-Ms", minimum=start_offset)
+        event_origin = _optional_header(headers, "X-Foresight-Event-Origin") or "laptop_control"
+        if event_origin not in {"laptop_control", "phone_field"}:
+            raise PhoneMediaIngestError("X-Foresight-Event-Origin is invalid")
+        authority = _optional_header(headers, "X-Foresight-Event-Authority") or "LAPTOP"
+        if authority not in {"LAPTOP", "PHONE_FIELD"}:
+            raise PhoneMediaIngestError("X-Foresight-Event-Authority is invalid")
+        if (event_origin == "phone_field") != (authority == "PHONE_FIELD"):
+            raise PhoneMediaIngestError("event origin and authority disagree")
+        termination_reason = _optional_header(headers, "X-Foresight-Event-Termination-Reason")
+        if (
+            termination_reason is not None
+            and termination_reason not in {"USER_END", "CAPTURE_STOP"}
+        ):
+            raise PhoneMediaIngestError("X-Foresight-Event-Termination-Reason is invalid")
+        capture_generation = (
+            _header_int(headers, "X-Foresight-Capture-Generation", minimum=0)
+            if _optional_header(headers, "X-Foresight-Capture-Generation") is not None
+            else None
+        )
+        source_recording_sha256 = _optional_header(headers, "X-Foresight-Source-Recording-Sha256")
+        if (
+            source_recording_sha256 is not None
+            and not _SHA256.fullmatch(source_recording_sha256.lower())
+        ):
+            raise PhoneMediaIngestError("X-Foresight-Source-Recording-Sha256 must be SHA-256")
         return PhoneMediaUploadMetadata(
             event_id=event_id,
             source_session_id=_header(headers, "X-Foresight-Source-Session-Id"),
@@ -182,6 +236,13 @@ class PhoneMediaIngestService:
             end_offset_ms=end_offset,
             output_duration_ms=_header_int(headers, "X-Foresight-Output-Duration-Ms", minimum=1),
             audio_present=_header(headers, "X-Foresight-Audio-Present").lower() == "true",
+            event_origin=event_origin,
+            event_authority=authority,
+            termination_reason=termination_reason,
+            capture_generation=capture_generation,
+            source_recording_sha256=source_recording_sha256.lower()
+            if source_recording_sha256 is not None
+            else None,
         )
 
     @staticmethod
@@ -297,6 +358,11 @@ class PhoneMediaIngestService:
             "byte_size": metadata.byte_size,
             "source_session_id": metadata.source_session_id,
             "recording_id": metadata.recording_id,
+            "event_origin": metadata.event_origin,
+            "event_authority": metadata.event_authority,
+            "termination_reason": metadata.termination_reason,
+            "capture_generation": metadata.capture_generation,
+            "source_recording_sha256": metadata.source_recording_sha256,
             "extraction": {
                 "observed_start_utc": metadata.observed_start_utc,
                 "observed_end_utc": metadata.observed_end_utc,
@@ -307,6 +373,35 @@ class PhoneMediaIngestService:
             },
             "ffprobe": dict(probe),
             "validated_at_utc": datetime.now(UTC).isoformat(),
+        }
+
+    @staticmethod
+    def _phone_field_manifest(
+        metadata: PhoneMediaUploadMetadata, phone_local: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Create a phone-authoritative event without fabricating network provenance."""
+        return {
+            "schema_version": 3,
+            "event_id": metadata.event_id,
+            "event_origin": "phone_field",
+            "event_authority": "phone_local",
+            "phone_field": {
+                "source_session_id": metadata.source_session_id,
+                "recording_id": metadata.recording_id,
+                "capture_generation": metadata.capture_generation,
+                "source_recording_sha256": metadata.source_recording_sha256,
+                "observed_start_utc": metadata.observed_start_utc,
+                "observed_end_utc": metadata.observed_end_utc,
+                "start_offset_ms": metadata.start_offset_ms,
+                "end_offset_ms": metadata.end_offset_ms,
+                "termination_reason": metadata.termination_reason,
+            },
+            "phone_local": dict(phone_local),
+            "authoritative_media": {
+                "source": "phone_local",
+                "path": phone_local["path"],
+                "sha256": phone_local["sha256"],
+            },
         }
 
     @staticmethod
@@ -385,6 +480,18 @@ def _header(headers: Mapping[str, str], name: str) -> str:
     )
     if not isinstance(value, str) or not value.strip():
         raise PhoneMediaIngestError(f"missing required header {name}")
+    return value.strip()
+
+
+def _optional_header(headers: Mapping[str, str], name: str) -> str | None:
+    value = next(
+        (candidate for key, candidate in headers.items() if key.lower() == name.lower()),
+        None,
+    )
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise PhoneMediaIngestError(f"invalid header {name}")
     return value.strip()
 
 

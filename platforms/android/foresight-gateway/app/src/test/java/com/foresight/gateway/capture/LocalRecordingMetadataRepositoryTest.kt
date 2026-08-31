@@ -48,6 +48,43 @@ class LocalRecordingMetadataRepositoryTest {
     }
 
     @Test
+    fun `field event persists phone authority and capture stop boundary across reload`() {
+        val root = temporaryRoot()
+        val repository = repository(root)
+        repository.createRecording(context())
+        val start = boundary("field-event", 13_000L)
+        val end = boundary("field-event", 18_500L)
+
+        repository.recordFieldStart(start)
+        repository.completeFieldEvent(
+            "field-event",
+            end,
+            LocalEventTerminationReason.CAPTURE_STOP,
+        )
+        val media = File(File(root, "recordings"), "capture-recording-1-g7.mp4")
+        requireNotNull(media.parentFile).mkdirs()
+        media.writeText("finalized field event media")
+        repository.finalizeRecording(context(), Instant.parse("2026-08-30T12:00:10Z"))
+
+        val reloaded = repository(root).snapshot().events.getValue("field-event")
+        assertEquals(LocalEventAuthority.PHONE_FIELD, reloaded.authority)
+        assertEquals(LocalEventTerminationReason.CAPTURE_STOP, reloaded.terminationReason)
+        assertEquals(LocalEventMappingState.READY, reloaded.state)
+        assertEquals(5_500L, reloaded.durationMillis)
+    }
+
+    @Test
+    fun `only one active field event is allowed for a recording session`() {
+        val repository = repository()
+        repository.createRecording(context())
+        repository.recordFieldStart(boundary("field-event-1", 13_000L))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            repository.recordFieldStart(boundary("field-event-2", 14_000L))
+        }
+    }
+
+    @Test
     fun `multiple events retain independent mappings for one recording`() {
         val repository = repository()
         repository.createRecording(context())
@@ -303,6 +340,63 @@ class LocalRecordingMetadataRepositoryTest {
         assertTrue(output.exists())
     }
 
+    @Test
+    fun `sync history preserves failed retry then validated success across reload`() {
+        val root = temporaryRoot()
+        val repository = repositoryWithReadySyncMedia(root)
+
+        val failed = repository.beginEventMediaSync("event-1", "http://laptop:8766")
+        repository.failEventMediaSync("event-1", failed.attempt.attemptId, "laptop unreachable")
+        val retried = repository.beginEventMediaSync("event-1", "http://laptop:8766")
+        repository.completeEventMediaSync(
+            "event-1",
+            retried.attempt.attemptId,
+            requireNotNull(retried.syncPlan.media.outputSha256),
+        )
+
+        val history = repository(root).syncHistory()
+        assertEquals(2, history.size)
+        assertEquals(EventMediaSyncAttemptResult.SYNCED, history.first().result)
+        assertTrue(history.first().laptopValidated)
+        assertEquals(EventMediaSyncAttemptResult.FAILED, history.last().result)
+        assertEquals(history.last().attemptId, history.first().priorAttemptId)
+        assertEquals("laptop unreachable", history.last().failureReason)
+    }
+
+    @Test
+    fun `sync history is newest first and retains only the latest hundred attempts`() {
+        val repository = repositoryWithReadySyncMedia(temporaryRoot())
+
+        repeat(101) { index ->
+            val attempt = repository.beginEventMediaSync("event-1", "http://laptop-$index:8766")
+            repository.failEventMediaSync("event-1", attempt.attempt.attemptId, "offline-$index")
+        }
+
+        val history = repository.syncHistory()
+        assertEquals(100, history.size)
+        assertEquals("offline-100", history.first().failureReason)
+        assertEquals("offline-1", history.last().failureReason)
+    }
+
+    @Test
+    fun `sync summary distinguishes local synced and retryable event media`() {
+        val repository = repositoryWithReadySyncMedia(temporaryRoot())
+
+        assertEquals(EventMediaSyncSummary(1, 0, 0), repository.syncSummary())
+
+        val failed = repository.beginEventMediaSync("event-1", "http://laptop:8766")
+        repository.failEventMediaSync("event-1", failed.attempt.attemptId, "laptop unreachable")
+        assertEquals(EventMediaSyncSummary(0, 0, 1), repository.syncSummary())
+
+        val retried = repository.beginEventMediaSync("event-1", "http://laptop:8766")
+        repository.completeEventMediaSync(
+            "event-1",
+            retried.attempt.attemptId,
+            requireNotNull(retried.syncPlan.media.outputSha256),
+        )
+        assertEquals(EventMediaSyncSummary(0, 1, 0), repository.syncSummary())
+    }
+
     private fun repository(
         root: File = temporaryRoot(),
         logger: LocalRecordingRepositoryLogger = LocalRecordingRepositoryLogger { _, _ -> },
@@ -322,6 +416,26 @@ class LocalRecordingMetadataRepositoryTest {
         source.writeText("immutable finalized local MP4 test placeholder")
         repository.finalizeRecording(context(), Instant.parse("2026-08-30T12:00:30Z"))
         addReadyEvent(repository, "event-1", 11_000L, 15_000L)
+        return repository
+    }
+
+    private fun repositoryWithReadySyncMedia(root: File): LocalRecordingMetadataRepository {
+        val repository = readyRepository(root)
+        val extraction = repository.beginEventMediaExtraction("event-1") as EventMediaExtractionDecision.Extract
+        val output = File(File(root, "event_media"), extraction.plan.outputFileName)
+        requireNotNull(output.parentFile).mkdirs()
+        output.writeText("ready private event media")
+        val sha256 = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(output.readBytes()).joinToString("") { "%02x".format(it) }
+        repository.completeEventMediaExtraction(
+            extraction.plan,
+            1_000L,
+            5_000L,
+            output.length(),
+            sha256,
+            videoPresent = true,
+            audioPresent = true,
+        )
         return repository
     }
 

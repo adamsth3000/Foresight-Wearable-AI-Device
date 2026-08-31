@@ -23,29 +23,54 @@ internal class EventMediaSyncClient(
 
     fun sync(eventId: String, baseUrl: String, callback: (EventMediaSyncUiState) -> Unit) {
         executor.execute {
-            val plan = runCatching { repository.beginEventMediaSync(eventId) }.getOrElse { error ->
-                callback(EventMediaSyncUiState(EventMediaSyncState.FAILED, error.message))
-                return@execute
-            }
             callback(EventMediaSyncUiState(EventMediaSyncState.UPLOADING, null))
-            val result = runCatching { upload(plan, baseUrl) }
-            val state = result.fold(
-                onSuccess = { detail ->
-                    repository.completeEventMediaSync(eventId, detail)
-                    EventMediaSyncUiState(EventMediaSyncState.SYNCED, detail)
-                },
-                onFailure = { error ->
-                    val detail = error.message ?: error.javaClass.simpleName
-                    repository.failEventMediaSync(eventId, detail)
-                    logWarning("Event media sync failed: eventId=$eventId; $detail", error)
-                    EventMediaSyncUiState(EventMediaSyncState.FAILED, detail)
-                },
-            )
-            callback(state)
+            callback(syncOne(eventId, baseUrl))
         }
     }
 
-    private fun upload(plan: EventMediaSyncPlan, baseUrl: String): String {
+    /** Executes on the same single-threaded upload executor as individual sync requests. */
+    fun syncAll(
+        eventIds: List<String>,
+        baseUrl: String,
+        callback: (eventId: String, state: EventMediaSyncUiState, completed: Int, total: Int) -> Unit,
+    ) {
+        executor.execute {
+            val uniqueEventIds = eventIds.distinct()
+            if (uniqueEventIds.isEmpty()) {
+                callback("", EventMediaSyncUiState(EventMediaSyncState.LOCAL_ONLY, "No pending event media"), 0, 0)
+                return@execute
+            }
+            uniqueEventIds.forEachIndexed { index, eventId ->
+                callback(eventId, EventMediaSyncUiState(EventMediaSyncState.UPLOADING), index, uniqueEventIds.size)
+                callback(eventId, syncOne(eventId, baseUrl), index + 1, uniqueEventIds.size)
+            }
+        }
+    }
+
+    private fun syncOne(eventId: String, baseUrl: String): EventMediaSyncUiState {
+        val attemptPlan = runCatching { repository.beginEventMediaSync(eventId, baseUrl.trim()) }.getOrElse { error ->
+            return EventMediaSyncUiState(EventMediaSyncState.FAILED, error.message)
+        }
+        return runCatching { upload(attemptPlan.syncPlan, baseUrl) }.fold(
+            onSuccess = { acknowledgement ->
+                repository.completeEventMediaSync(
+                    eventId,
+                    attemptPlan.attempt.attemptId,
+                    acknowledgement.authoritativeMediaSha256,
+                    acknowledgement.detail,
+                )
+                EventMediaSyncUiState(EventMediaSyncState.SYNCED, acknowledgement.detail)
+            },
+            onFailure = { error ->
+                val detail = error.message ?: error.javaClass.simpleName
+                repository.failEventMediaSync(eventId, attemptPlan.attempt.attemptId, detail)
+                logWarning("Event media sync failed: eventId=$eventId; $detail", error)
+                EventMediaSyncUiState(EventMediaSyncState.FAILED, detail)
+            },
+        )
+    }
+
+    private fun upload(plan: EventMediaSyncPlan, baseUrl: String): SyncUploadAcknowledgement {
         val endpoint = endpoint(baseUrl, plan.media.eventId)
         val file = plan.privateFile
         require(file.isFile && file.length() == plan.media.outputByteSize) { "local event media is unavailable" }
@@ -63,6 +88,16 @@ internal class EventMediaSyncClient(
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("X-Foresight-Source-Session-Id", plan.recording.sourceSessionId)
             connection.setRequestProperty("X-Foresight-Recording-Id", plan.recording.recordingId)
+            connection.setRequestProperty("X-Foresight-Capture-Generation", plan.recording.captureGeneration.toString())
+            connection.setRequestProperty("X-Foresight-Source-Recording-Sha256", plan.recording.sha256.orEmpty())
+            connection.setRequestProperty("X-Foresight-Event-Authority", plan.event.authority.name)
+            connection.setRequestProperty(
+                "X-Foresight-Event-Origin",
+                if (plan.event.authority == LocalEventAuthority.PHONE_FIELD) "phone_field" else "laptop_control",
+            )
+            plan.event.terminationReason?.let {
+                connection.setRequestProperty("X-Foresight-Event-Termination-Reason", it.name)
+            }
             connection.setRequestProperty("X-Foresight-Media-Length", plan.media.outputByteSize.toString())
             connection.setRequestProperty("X-Foresight-Media-Sha256", requireNotNull(plan.media.outputSha256))
             connection.setRequestProperty("X-Foresight-Observed-Start-Utc", plan.event.observedStartUtc.toString())
@@ -91,7 +126,13 @@ internal class EventMediaSyncClient(
             require(response.optString("state") == "synced") { "laptop returned an invalid sync response" }
             require(response.optString("event_id") == plan.media.eventId) { "laptop returned another event ID" }
             require(response.optString("sha256") == plan.media.outputSha256) { "laptop returned another SHA-256" }
-            return if (response.optBoolean("idempotent")) "already verified by laptop" else "verified by laptop"
+            require(response.optBoolean("validated")) { "laptop did not confirm media validation" }
+            val authoritativeSha = response.optString("authoritative_media_sha256")
+            require(authoritativeSha == plan.media.outputSha256) { "laptop returned another authoritative SHA-256" }
+            return SyncUploadAcknowledgement(
+                authoritativeMediaSha256 = authoritativeSha,
+                detail = if (response.optBoolean("idempotent")) "already verified by laptop" else "verified by laptop",
+            )
         } finally {
             connection.disconnect()
         }
@@ -135,3 +176,8 @@ internal class EventMediaSyncClient(
         const val READ_TIMEOUT_MILLIS = 30_000
     }
 }
+
+private data class SyncUploadAcknowledgement(
+    val authoritativeMediaSha256: String,
+    val detail: String,
+)

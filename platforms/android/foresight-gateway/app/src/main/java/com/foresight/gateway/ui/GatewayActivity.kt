@@ -32,8 +32,14 @@ import android.widget.TextView
 import com.foresight.gateway.capture.CaptureForegroundService
 import com.foresight.gateway.capture.EventMediaSyncState
 import com.foresight.gateway.capture.EventMediaSyncUiState
+import com.foresight.gateway.capture.EventMediaSyncAttemptResult
+import com.foresight.gateway.capture.EventMediaSyncHistoryEntry
+import com.foresight.gateway.capture.EventMediaSyncSummary
 import com.foresight.gateway.control.EventControlClient
+import com.foresight.gateway.control.EventControlState
 import com.foresight.gateway.control.EventControlUiState
+import com.foresight.gateway.mode.GatewayOperatingMode
+import com.foresight.gateway.mode.GatewayOperatingModePolicy
 
 /** Minimal visible control surface; it never owns capture after the service starts. */
 class GatewayActivity : Activity() {
@@ -50,6 +56,12 @@ class GatewayActivity : Activity() {
     private lateinit var endEventButton: Button
     private lateinit var quickEventButton: Button
     private lateinit var syncEventButton: Button
+    private lateinit var syncAllPendingButton: Button
+    private lateinit var syncSummaryText: TextView
+    private lateinit var syncHistoryContainer: LinearLayout
+    private lateinit var syncReceiptText: TextView
+    private lateinit var labModeButton: Button
+    private lateinit var fieldModeButton: Button
     private lateinit var previewSurface: SurfaceView
     private lateinit var stoppedPreviewOverlay: View
     private val eventControl = EventControlClient()
@@ -58,7 +70,10 @@ class GatewayActivity : Activity() {
     private var lastEventIdForSync: String? = null
     private var lastPropagatedSyncEventId: String? = null
     private var lastSyncUiDiagnostic: String? = null
+    private var selectedSyncAttemptId: String? = null
+    private var syncAllInFlight = false
     private var configurationState = GatewayConfigurationState()
+    private var operatingMode = GatewayOperatingMode.LAB
     private var captureEndpointState = GatewayCaptureEndpointState()
     private var captureBinder: CaptureForegroundService.CaptureBinder? = null
     private var previewSurfaceReady = false
@@ -79,6 +94,7 @@ class GatewayActivity : Activity() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             captureBinder = service as? CaptureForegroundService.CaptureBinder
             refreshSyncableEventFromService()
+            refreshFieldEventFromService()
             attachPreviewIfReady()
             renderStatus()
         }
@@ -93,6 +109,7 @@ class GatewayActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         lastEventIdForSync = preferences().getString(PREF_LAST_SYNC_EVENT_ID, null)
+        operatingMode = GatewayOperatingMode.restore(preferences().getString(PREF_OPERATING_MODE, null))
         endpointInput = EditText(this).apply {
             hint = "rtsp://LAPTOP_IP:8554/foresight-phone"
             captureEndpointState = GatewayCaptureEndpointState.restore(
@@ -277,6 +294,22 @@ class GatewayActivity : Activity() {
             dp(48),
         ))
 
+        controls.addView(panelLabel("OPERATING MODE"))
+        val modeRow = LinearLayout(this@GatewayActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        labModeButton = Button(this@GatewayActivity).apply {
+            text = "LAB"
+            setOnClickListener { selectOperatingMode(GatewayOperatingMode.LAB) }
+        }
+        fieldModeButton = Button(this@GatewayActivity).apply {
+            text = "FIELD"
+            setOnClickListener { selectOperatingMode(GatewayOperatingMode.FIELD) }
+        }
+        modeRow.addView(labModeButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        modeRow.addView(fieldModeButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        controls.addView(modeRow)
+
         controls.addView(panelLabel("CAPTURE"))
         val captureRow = LinearLayout(this@GatewayActivity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -329,6 +362,31 @@ class GatewayActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(60),
         ))
+        syncAllPendingButton = Button(this@GatewayActivity).apply {
+            text = "SYNC ALL PENDING"
+            textSize = 16f
+            setOnClickListener { syncAllPending() }
+        }
+        controls.addView(syncAllPendingButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ))
+        syncSummaryText = TextView(this@GatewayActivity).apply {
+            textSize = 14f
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        controls.addView(syncSummaryText)
+        controls.addView(panelLabel("SYNC HISTORY"))
+        syncHistoryContainer = LinearLayout(this@GatewayActivity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        controls.addView(syncHistoryContainer)
+        controls.addView(panelLabel("SYNC RECEIPT"))
+        syncReceiptText = TextView(this@GatewayActivity).apply {
+            textSize = 13f
+            setPadding(0, dp(4), 0, dp(8))
+        }
+        controls.addView(syncReceiptText)
         controls.addView(statusText)
     }
 
@@ -348,10 +406,15 @@ class GatewayActivity : Activity() {
             return
         }
         val endpoint = captureEndpointState.rtspEndpoint
-        Log.i(TAG, "Capture start requested: rtsp=$endpoint")
+        if (!GatewayOperatingModePolicy.canStartCapture(operatingMode, endpoint)) {
+            statusText.text = "Lab mode requires an RTSP destination."
+            return
+        }
+        Log.i(TAG, "Capture start requested: mode=$operatingMode rtsp=${endpoint.ifBlank { "not configured" }}")
         val intent = Intent(this, CaptureForegroundService::class.java)
             .setAction(CaptureForegroundService.ACTION_START)
             .putExtra(CaptureForegroundService.EXTRA_ENDPOINT, endpoint)
+            .putExtra(CaptureForegroundService.EXTRA_OPERATING_MODE, operatingMode.name)
             .putExtra(
                 CaptureForegroundService.EXTRA_TELEMETRY_ENDPOINT,
                 telemetryEndpointInput.text.toString().trim(),
@@ -377,9 +440,10 @@ class GatewayActivity : Activity() {
         val syncPresentation = refreshSyncableEventFromService()
         val status = CaptureForegroundService.currentStatus
         val metadata = status.metadata
-        val presentation = GatewayPresentation(status.lifecycle, eventUiState.event)
+        val presentation = GatewayPresentation(operatingMode, status.lifecycle, eventUiState.event)
         statusText.text = buildString {
-            append("Capture: ${presentation.captureLabel}")
+            append("Mode: ${operatingMode.name}")
+            append("\nLocal Capture: ${presentation.captureLabel}")
             append("\nEvent: ${presentation.eventLabel}")
             eventUiState.event.eventId?.let { append(" (${it.take(8)})") }
             status.detail?.let { append("\nCapture detail: $it") }
@@ -389,7 +453,8 @@ class GatewayActivity : Activity() {
             append(" (${syncPresentation.reason})")
         }
         overlayStatusText.text = buildString {
-            append("Capture: ${presentation.captureLabel}")
+            append("Mode: ${operatingMode.name}")
+            append("\nLocal: ${presentation.captureLabel}")
             append("\nEvent: ${presentation.eventLabel}")
             eventUiState.event.eventId?.let { append("\nID: ${it.take(8)}") }
         }
@@ -400,9 +465,18 @@ class GatewayActivity : Activity() {
         startEventButton.isEnabled = presentation.startEventEnabled
         endEventButton.isEnabled = presentation.endEventEnabled
         quickEventButton.isEnabled = presentation.quickEventEnabled
+        labModeButton.isEnabled = !presentation.localCaptureActive
+        fieldModeButton.isEnabled = !presentation.localCaptureActive
+        labModeButton.alpha = if (operatingMode == GatewayOperatingMode.LAB) 1f else 0.55f
+        fieldModeButton.alpha = if (operatingMode == GatewayOperatingMode.FIELD) 1f else 0.55f
         syncEventButton.visibility = if (syncPresentation.buttonVisible) View.VISIBLE else View.GONE
-        syncEventButton.isEnabled = syncPresentation.buttonEnabled
+        syncEventButton.isEnabled = syncPresentation.buttonEnabled && !syncAllInFlight
         syncEventButton.text = if (syncPresentation.syncState == EventMediaSyncState.FAILED) "RETRY SYNC" else "SYNC EVENT"
+        val history = captureBinder?.syncHistory().orEmpty()
+        val summary = captureBinder?.syncSummary() ?: EventMediaSyncSummary(0, 0, 0)
+        syncAllPendingButton.isEnabled = !syncAllInFlight && summary.readyLocalOnlyCount + summary.retryableCount > 0
+        syncSummaryText.text = formatSyncSummary(summary)
+        renderSyncHistory(history, captureBinder?.syncableEventIds().orEmpty())
         logSyncUiDecision(syncPresentation)
         captureBinder?.updateEventState(presentation.event.state)
         clearStoppedPreviewIfNeeded(status.lifecycle)
@@ -435,7 +509,8 @@ class GatewayActivity : Activity() {
     }
 
     private fun refreshEventStatus() {
-        if (CaptureForegroundService.currentStatus.lifecycle != com.foresight.gateway.transport.StreamLifecycle.STREAMING ||
+        if (operatingMode == GatewayOperatingMode.FIELD) return
+        if (!isLocalCaptureActive(CaptureForegroundService.currentStatus.lifecycle) ||
             configurationState.controlBaseUrl.isBlank() || eventStatusRequestInFlight
         ) return
         val now = android.os.SystemClock.elapsedRealtime()
@@ -451,7 +526,28 @@ class GatewayActivity : Activity() {
         }
     }
 
+    private fun isLocalCaptureActive(lifecycle: com.foresight.gateway.transport.StreamLifecycle): Boolean =
+        lifecycle == com.foresight.gateway.transport.StreamLifecycle.STREAMING ||
+            lifecycle == com.foresight.gateway.transport.StreamLifecycle.RECONNECTING ||
+            lifecycle == com.foresight.gateway.transport.StreamLifecycle.DEGRADED ||
+            lifecycle == com.foresight.gateway.transport.StreamLifecycle.OFFLINE
+
+    private fun selectOperatingMode(mode: GatewayOperatingMode) {
+        if (isLocalCaptureActive(CaptureForegroundService.currentStatus.lifecycle)) {
+            Log.w(TAG, "Operating mode cannot change while local capture is active.")
+            return
+        }
+        operatingMode = mode
+        preferences().edit().putString(PREF_OPERATING_MODE, mode.name).apply()
+        Log.i(TAG, "Gateway operating mode selected: $mode")
+        renderStatus()
+    }
+
     private fun sendEventControl(action: String) {
+        if (operatingMode == GatewayOperatingMode.FIELD) {
+            sendFieldEventControl(action)
+            return
+        }
         val endpoint = configurationState.controlBaseUrl
         eventUiState = eventUiState.pending(action)
         renderStatus()
@@ -480,6 +576,72 @@ class GatewayActivity : Activity() {
         }
     }
 
+    private fun sendFieldEventControl(action: String) {
+        if (action == "quick") {
+            eventUiState = eventUiState.copy(detail = "Quick event requires Lab mode and laptop control.")
+            renderStatus()
+            return
+        }
+        val binder = captureBinder
+        if (binder == null) {
+            eventUiState = eventUiState.copy(detail = "FIELD event unavailable: capture service is not bound.")
+            renderStatus()
+            return
+        }
+        eventUiState = eventUiState.pending(action)
+        renderStatus()
+        when (action) {
+            "start" -> binder.startFieldEvent { result ->
+                runOnUiThread {
+                    eventUiState = result.fold(
+                        onSuccess = { event ->
+                            EventControlUiState(
+                                EventControlState("recording_bounded_event", event.eventId),
+                                "FIELD event recorded locally; laptop is not required.",
+                            )
+                        },
+                        onFailure = { error -> eventUiState.copy(detail = "FIELD event start failed: ${error.message}") },
+                    )
+                    renderStatus()
+                }
+            }
+            "end" -> binder.endFieldEvent { result ->
+                runOnUiThread {
+                    eventUiState = result.fold(
+                        onSuccess = { event ->
+                            lastEventIdForSync = event.eventId
+                            preferences().edit().putString(PREF_LAST_SYNC_EVENT_ID, event.eventId).apply()
+                            syncUiState = EventMediaSyncUiState(
+                                EventMediaSyncState.LOCAL_ONLY,
+                                "FIELD event is local; extraction follows recording finalization.",
+                            )
+                            EventControlUiState(
+                                EventControlState("finalizing", event.eventId),
+                                "FIELD event complete; pending local extraction.",
+                            )
+                        },
+                        onFailure = { error -> eventUiState.copy(detail = "FIELD event end failed: ${error.message}") },
+                    )
+                    renderStatus()
+                }
+            }
+        }
+    }
+
+    private fun refreshFieldEventFromService() {
+        if (operatingMode != GatewayOperatingMode.FIELD) return
+        captureBinder?.activeFieldEvent { active ->
+            runOnUiThread {
+                if (operatingMode != GatewayOperatingMode.FIELD || active == null) return@runOnUiThread
+                eventUiState = EventControlUiState(
+                    EventControlState("recording_bounded_event", active.eventId),
+                    "Recovered active FIELD event from local metadata.",
+                )
+                renderStatus()
+            }
+        }
+    }
+
     private fun syncCurrentEvent() {
         val syncPresentation = refreshSyncableEventFromService()
         val eventId = syncPresentation.eventId ?: return
@@ -501,6 +663,80 @@ class GatewayActivity : Activity() {
             renderStatus()
         }
     }
+
+    private fun syncAllPending() {
+        val binder = captureBinder ?: run {
+            syncUiState = EventMediaSyncUiState(EventMediaSyncState.FAILED, "Capture service unavailable")
+            renderStatus()
+            return
+        }
+        val endpoint = configurationState.controlBaseUrl
+        syncAllInFlight = true
+        syncUiState = EventMediaSyncUiState(EventMediaSyncState.UPLOADING, "Syncing pending events")
+        renderStatus()
+        binder.syncAllReadyEventMedia(endpoint) { eventId, state, completed, total ->
+            runOnUiThread {
+                syncUiState = state.copy(detail = state.detail ?: "Syncing $completed/$total: ${eventId.take(8)}")
+                if ((total == 0 || completed == total) && state.state != EventMediaSyncState.UPLOADING) {
+                    syncAllInFlight = false
+                }
+                renderStatus()
+            }
+        }
+    }
+
+    private fun formatSyncSummary(summary: EventMediaSyncSummary): String =
+        "Pending: ${summary.readyLocalOnlyCount} / Synced: ${summary.syncedCount} / Retryable: ${summary.retryableCount}"
+
+    private fun renderSyncHistory(
+        entries: List<EventMediaSyncHistoryEntry>,
+        retryableEventIds: List<String>,
+    ) {
+        syncHistoryContainer.removeAllViews()
+        if (entries.isEmpty()) {
+            syncHistoryContainer.addView(TextView(this).apply { text = "No sync attempts yet." })
+            syncReceiptText.text = "Select a sync attempt to view its receipt."
+            return
+        }
+        if (selectedSyncAttemptId !in entries.map { it.attemptId }) selectedSyncAttemptId = entries.first().attemptId
+        entries.take(SYNC_HISTORY_VISIBLE_LIMIT).forEach { entry ->
+            syncHistoryContainer.addView(Button(this).apply {
+                text = "${historyIndicator(entry)} ${entry.eventId.take(8)} / ${entry.result ?: EventMediaSyncAttemptResult.FAILED}"
+                textSize = 13f
+                isAllCaps = false
+                setOnClickListener {
+                    selectedSyncAttemptId = entry.attemptId
+                    renderStatus()
+                }
+            })
+        }
+        val selected = entries.first { it.attemptId == selectedSyncAttemptId }
+        syncReceiptText.text = formatSyncReceipt(selected, selected.eventId in retryableEventIds)
+    }
+
+    private fun historyIndicator(entry: EventMediaSyncHistoryEntry): String =
+        if (entry.result == EventMediaSyncAttemptResult.SYNCED) "[OK]" else "[FAIL]"
+
+    private fun formatSyncReceipt(entry: EventMediaSyncHistoryEntry, retryAvailable: Boolean): String = buildString {
+        append("Event: ${entry.eventId}\n")
+        append("Origin/authority: ${entry.eventOrigin} / ${entry.authority}\n")
+        append("Attempt: ${entry.startedUtc}\n")
+        entry.completedUtc?.let { append("Completed: $it\n") }
+        append("Bytes: ${formatByteSize(entry.byteSize)}\n")
+        append("Destination: ${entry.destinationIdentity}\n")
+        append("Local SHA-256: ${entry.localMediaSha256}\n")
+        if (entry.result == EventMediaSyncAttemptResult.SYNCED) {
+            append("Laptop SHA-256: ${entry.authoritativeMediaSha256}\n")
+            append("SHA match: ${entry.localMediaSha256 == entry.authoritativeMediaSha256}\n")
+            append("Laptop validated: ${entry.laptopValidated}")
+        } else {
+            append("Failure: ${entry.failureReason ?: "interrupted upload"}\n")
+            append("Retry available: $retryAvailable")
+        }
+    }
+
+    private fun formatByteSize(value: Long): String =
+        if (value < 1_000_000) "${value / 1_000} KB" else "%.1f MB".format(value / 1_000_000.0)
 
     private fun statusLight(label: String): TextView = TextView(this).apply {
         gravity = Gravity.CENTER
@@ -587,6 +823,8 @@ class GatewayActivity : Activity() {
         private const val PREF_LAST_TELEMETRY_ENDPOINT = "last_telemetry_endpoint"
         private const val PREF_LAST_CONTROL_ENDPOINT = "last_control_endpoint"
         private const val PREF_LAST_SYNC_EVENT_ID = "last_sync_event_id"
+        private const val PREF_OPERATING_MODE = "operating_mode"
+        private const val SYNC_HISTORY_VISIBLE_LIMIT = 8
         private const val STATUS_REFRESH_MILLIS = 500L
         private const val EVENT_STATUS_REFRESH_MILLIS = 1_500L
         private const val TAG = "GatewayActivity"

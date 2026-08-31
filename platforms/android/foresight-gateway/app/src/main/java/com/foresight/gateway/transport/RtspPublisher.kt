@@ -4,7 +4,6 @@ import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
 import android.util.Size
 import android.util.Log
@@ -12,11 +11,13 @@ import android.view.SurfaceView
 import com.pedro.common.ConnectChecker
 import com.pedro.common.socket.base.SocketType
 import com.pedro.encoder.input.sources.OrientationForced
+import com.pedro.encoder.CodecErrorCallback
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.video.FrameCapturedCallback
 import com.pedro.encoder.utils.gl.AspectRatioMode
+import com.pedro.encoder.utils.CodecUtil.CodecTypeError
 import com.pedro.library.rtsp.RtspStream
 import com.pedro.library.base.recording.RecordController
 import com.foresight.gateway.capture.LocalRecordingContext
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong
 class RtspPublisher(
     context: Context,
     private val listener: Listener,
+    private val captureHandler: Handler,
 ) : ConnectChecker {
     interface Listener {
         fun onLifecycleChanged(lifecycle: StreamLifecycle, detail: String? = null)
@@ -84,18 +86,18 @@ class RtspPublisher(
         listener.onLifecycleChanged(lifecycle, detail)
     }
 
-    fun start(endpoint: String, sourceSessionId: String): Boolean {
+    fun start(endpoint: String?, sourceSessionId: String): Boolean {
         return startInternal(endpoint, sourceSessionId, resetRetryPolicy = true)
     }
 
-    private fun startInternal(endpoint: String, sourceSessionId: String, resetRetryPolicy: Boolean): Boolean {
+    private fun startInternal(endpoint: String?, sourceSessionId: String, resetRetryPolicy: Boolean): Boolean {
         if (stream.isStreaming) {
             Log.w(TAG, "RTSP start ignored because the previous transport is still active: $endpoint")
             return true
         }
         check(!stoppingTransport) { "RTSP transport is still stopping; wait for IDLE before starting." }
         captureRequested = true
-        activeEndpoint = endpoint
+        activeEndpoint = endpoint?.takeIf { it.isNotBlank() }
         activeSourceSessionId = sourceSessionId
         if (resetRetryPolicy) reconnectPolicy.reset()
         cancelScheduledRetry("new capture request")
@@ -108,7 +110,7 @@ class RtspPublisher(
         transportConnected = false
 
         reportLifecycle(StreamLifecycle.PREPARING)
-        Log.i(TAG, "Capture generation $streamGeneration preparing: rtsp=$endpoint")
+        Log.i(TAG, "Capture generation $streamGeneration preparing: rtsp=${activeEndpoint ?: "not configured"}")
         val cameraSize = selectCameraSize()
         cameraSource.setRequiredResolution(cameraSize)
         logCameraGeometry(cameraSize)
@@ -162,8 +164,7 @@ class RtspPublisher(
 
         attachPreviewIfReady()
 
-        reportLifecycle(StreamLifecycle.CONNECTING)
-        Log.i(TAG, "Capture generation $streamGeneration RTSP connecting: $endpoint")
+        val rtspEndpoint = activeEndpoint
         // RootEncoder reconnects only when its retry budget is positive. The app owns timing;
         // this generous budget simply keeps the requested foreground capture retryable.
         stream.getStreamClient().setReTries(ROOT_ENCODER_RETRY_BUDGET)
@@ -183,9 +184,17 @@ class RtspPublisher(
                 listener.onCameraFrameCaptured(frameNumber, timestamp)
             }
         })
-        stream.startStream(endpoint)
-        startLocalRecording(sourceSessionId)
-        startTransportDiagnostics()
+        if (rtspEndpoint != null) {
+            reportLifecycle(StreamLifecycle.CONNECTING)
+            Log.i(TAG, "Capture generation $streamGeneration RTSP connecting: $rtspEndpoint")
+            stream.startStream(rtspEndpoint)
+            startLocalRecording(sourceSessionId)
+            startTransportDiagnostics()
+        } else {
+            // startRecord starts Camera2/audio sources when no RTSP stream owns them.
+            startLocalRecording(sourceSessionId)
+            reportLifecycle(StreamLifecycle.OFFLINE, "Field local recording active; RTSP is not configured.")
+        }
         Log.i(
             TAG,
             "Capture generation $streamGeneration camera started: " +
@@ -212,7 +221,7 @@ class RtspPublisher(
         senderProgressMonitor.reset()
         fatalTransportError = false
         transportConnected = false
-        mainHandler.removeCallbacks(transportDiagnostics)
+        captureHandler.removeCallbacks(transportDiagnostics)
         detachPreviewForTransportStop()
         stopLocalRecording()
         videoPrepared = false
@@ -440,6 +449,10 @@ class RtspPublisher(
     }
 
     override fun onAuthError() {
+        if (localRecordingIsActive()) {
+            enterLocalFirstDegradedMode("RTSP authentication failed while local recording continues")
+            return
+        }
         captureRequested = false
         cancelScheduledRetry("RTSP authentication failure")
         cancelKtorFailureWait("RTSP authentication failure")
@@ -457,6 +470,10 @@ class RtspPublisher(
 
     private fun scheduleReconnect(reason: String) {
         transportConnected = false
+        if (publisherLifecycle == StreamLifecycle.DEGRADED && localRecordingIsActive()) {
+            Log.i(TAG, "RTSP retry skipped: this capture is already in local-first degraded mode.")
+            return
+        }
         if (!captureRequested) {
             Log.i(TAG, "RTSP retry skipped because capture is no longer requested.")
             return
@@ -466,6 +483,18 @@ class RtspPublisher(
                 TAG,
                 "RTSP retry already scheduled or in flight; ignoring duplicate failure: $reason " +
                     "(timerScheduled=${retryState.isTimerScheduled}, inFlight=${retryState.isAttemptInFlight})",
+            )
+            return
+        }
+        if (LocalFirstTransportPolicy.shouldEnterDegradedMode(
+                localRecordingIsActive(),
+                reconnectPolicy.attempts(),
+                MAX_LOCAL_RECORDING_RETRY_ATTEMPTS,
+            )
+        ) {
+            retryState.reset()
+            enterLocalFirstDegradedMode(
+                "RTSP retry limit reached while local recording continues: $reason",
             )
             return
         }
@@ -479,7 +508,7 @@ class RtspPublisher(
             StreamLifecycle.RECONNECTING,
             "RTSP reconnect ${reconnectPolicy.attempts()} in ${delayMillis / 1_000}s: $reason",
         )
-        mainHandler.postDelayed(retryTimer, delayMillis)
+        captureHandler.postDelayed(retryTimer, delayMillis)
     }
 
     private val retryTimer = Runnable {
@@ -503,11 +532,15 @@ class RtspPublisher(
             Log.i(TAG, "RootEncoder reTry() returned $accepted for attempt ${reconnectPolicy.attempts()}.")
             if (!accepted) {
                 retryState.reset()
-                captureRequested = false
-                fatalTransportError = true
-                Log.e(TAG, "RTSP cannot retry further: $reason")
-                reportLifecycle(StreamLifecycle.ERROR, "RTSP retry unavailable: $reason")
-                if (stream.isStreaming) stream.stopStream()
+                if (localRecordingIsActive()) {
+                    enterLocalFirstDegradedMode("RTSP retry unavailable while local recording continues: $reason")
+                } else {
+                    captureRequested = false
+                    fatalTransportError = true
+                    Log.e(TAG, "RTSP cannot retry further: $reason")
+                    reportLifecycle(StreamLifecycle.ERROR, "RTSP retry unavailable: $reason")
+                    if (stream.isStreaming) stream.stopStream()
+                }
             } else {
                 retryAttemptStartedElapsedMillis = SystemClock.elapsedRealtime()
                 Log.i(
@@ -516,7 +549,7 @@ class RtspPublisher(
                         "${retryAttemptStartedElapsedMillis}ms; deadline in " +
                         "${RETRY_ATTEMPT_DEADLINE_MILLIS}ms.",
                 )
-                mainHandler.postDelayed(retryAttemptWatchdog, RETRY_ATTEMPT_DEADLINE_MILLIS)
+                captureHandler.postDelayed(retryAttemptWatchdog, RETRY_ATTEMPT_DEADLINE_MILLIS)
             }
         } catch (error: RuntimeException) {
             retryState.connectionFailed()
@@ -540,10 +573,7 @@ class RtspPublisher(
         )
         if (!retryState.attemptDeadlineExpired()) return@Runnable
         retryAttemptStartedElapsedMillis = null
-        reportLifecycle(
-            StreamLifecycle.RECONNECTING,
-            "RTSP retry stalled; rebuilding the transport stack.",
-        )
+        reportLifecycle(StreamLifecycle.RECONNECTING, "RTSP retry stalled; evaluating transport recovery.")
         rebuildTransportStack("retry attempt did not produce a terminal callback")
     }
 
@@ -557,7 +587,7 @@ class RtspPublisher(
                 "before fallback retry: $reason",
         )
         reportLifecycle(StreamLifecycle.RECONNECTING, "RTSP sender stalled; verifying transport failure.")
-        mainHandler.postDelayed(stalledTransportFallback, KTOR_FAILURE_GRACE_MILLIS)
+        captureHandler.postDelayed(stalledTransportFallback, KTOR_FAILURE_GRACE_MILLIS)
     }
 
     private val stalledTransportFallback = Runnable {
@@ -572,14 +602,14 @@ class RtspPublisher(
 
     private fun cancelScheduledRetry(reason: String) {
         if (retryState.isTimerScheduled) Log.i(TAG, "Cancelling scheduled RTSP retry: $reason")
-        mainHandler.removeCallbacks(retryTimer)
+        captureHandler.removeCallbacks(retryTimer)
         retryReason = null
         retryState.reset()
     }
 
     private fun cancelKtorFailureWait(reason: String) {
         if (awaitingKtorFailure) Log.i(TAG, "Cancelling Ktor failure wait: $reason")
-        mainHandler.removeCallbacks(stalledTransportFallback)
+        captureHandler.removeCallbacks(stalledTransportFallback)
         awaitingKtorFailure = false
     }
 
@@ -587,7 +617,7 @@ class RtspPublisher(
         if (retryAttemptStartedElapsedMillis != null) {
             Log.i(TAG, "Cancelling RTSP retry-attempt watchdog: $reason")
         }
-        mainHandler.removeCallbacks(retryAttemptWatchdog)
+        captureHandler.removeCallbacks(retryAttemptWatchdog)
         retryAttemptStartedElapsedMillis = null
     }
 
@@ -601,6 +631,14 @@ class RtspPublisher(
             captureRequested = false
             fatalTransportError = true
             reportLifecycle(StreamLifecycle.ERROR, "RTSP retry lost its endpoint.")
+            return
+        }
+        // RtspStream owns both RTP delivery and the RecordController fan-out. Releasing it is
+        // not transport-only, so local-first field capture defers replacement while recording.
+        if (LocalFirstTransportPolicy.replacementAction(localRecordingIsActive()) ==
+            LocalFirstTransportPolicy.ReplacementAction.DEGRADE
+        ) {
+            enterLocalFirstDegradedMode("RTSP recovery requires RootEncoder replacement: $reason")
             return
         }
         rebuildingTransport = true
@@ -621,7 +659,7 @@ class RtspPublisher(
         } catch (error: RuntimeException) {
             Log.w(TAG, "Retired RootEncoder transport stop raised an exception.", error)
         }
-        mainHandler.postDelayed({
+        captureHandler.postDelayed({
             if (!captureRequested || fatalTransportError) {
                 rebuildingTransport = false
                 Log.i(TAG, "RTSP transport rebuild cancelled before replacement start.")
@@ -638,6 +676,18 @@ class RtspPublisher(
         }, TRANSPORT_REBUILD_DELAY_MILLIS)
     }
 
+    private fun localRecordingIsActive(): Boolean =
+        localRecordingContext?.isRecording == true && localRecordingPath != null && stream.isRecording
+
+    private fun enterLocalFirstDegradedMode(detail: String) {
+        transportConnected = false
+        cancelScheduledRetry("local-first RTSP degraded mode")
+        cancelKtorFailureWait("local-first RTSP degraded mode")
+        cancelRetryAttemptWatchdog("local-first RTSP degraded mode")
+        Log.w(TAG, "$detail; preserving recordingId=${localRecordingContext?.recordingId}.")
+        reportLifecycle(StreamLifecycle.DEGRADED, detail)
+    }
+
     private fun createStream(): RtspStream {
         val generation = ++streamGeneration
         generationOwnership.activate(generation)
@@ -648,7 +698,36 @@ class RtspPublisher(
             generationScopedConnectChecker(generation),
             cameraSource,
             MicrophoneSource(),
-        )
+        ).also { createdStream ->
+            createdStream.setEncoderErrorCallback(object : CodecErrorCallback {
+                override fun onCodecError(type: CodecTypeError, e: android.media.MediaCodec.CodecException) {
+                    captureHandler.post {
+                        failCapturePipeline("RootEncoder $type codec failure: ${e.diagnosticInfo ?: e.message}")
+                    }
+                }
+
+                override fun onEncodeError(type: CodecTypeError, e: IllegalStateException): Boolean {
+                    captureHandler.post {
+                        failCapturePipeline("RootEncoder $type encoder state failure: ${e.message}")
+                    }
+                    return false
+                }
+            })
+        }
+    }
+
+    private fun failCapturePipeline(detail: String) {
+        if (!captureRequested) return
+        captureRequested = false
+        fatalTransportError = true
+        cancelScheduledRetry("capture pipeline failure")
+        cancelKtorFailureWait("capture pipeline failure")
+        cancelRetryAttemptWatchdog("capture pipeline failure")
+        interruptLocalRecording(detail)
+        Log.e(TAG, detail)
+        runCatching { stream.stopStream() }
+        runCatching { stream.release() }
+        reportLifecycle(StreamLifecycle.ERROR, detail)
     }
 
     private fun generationScopedConnectChecker(generation: Int) = object : ConnectChecker {
@@ -682,13 +761,15 @@ class RtspPublisher(
     }
 
     private fun forwardIfCurrent(generation: Int, callback: () -> Unit) {
-        if (generation == streamGeneration && generationOwnership.accepts(generation)) callback()
-        else Log.i(TAG, "Ignoring callback from retired RootEncoder transport generation $generation.")
+        captureHandler.post {
+            if (generation == streamGeneration && generationOwnership.accepts(generation)) callback()
+            else Log.i(TAG, "Ignoring callback from retired RootEncoder transport generation $generation.")
+        }
     }
 
     private fun startTransportDiagnostics() {
-        mainHandler.removeCallbacks(transportDiagnostics)
-        mainHandler.postDelayed(transportDiagnostics, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
+        captureHandler.removeCallbacks(transportDiagnostics)
+        captureHandler.postDelayed(transportDiagnostics, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
     }
 
     private val transportDiagnostics = object : Runnable {
@@ -744,7 +825,7 @@ class RtspPublisher(
                 Log.w(TAG, "RTSP transport stall detected: ${result.reason}")
                 awaitKtorFailure(result.reason ?: "RTSP sender stalled")
             }
-            mainHandler.postDelayed(this, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
+            captureHandler.postDelayed(this, TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS)
         }
     }
 
@@ -794,7 +875,7 @@ class RtspPublisher(
     }
 
     private fun scheduleTextureDiagnostics(cameraSize: Size) {
-        mainHandler.postDelayed({
+        captureHandler.postDelayed({
             if (!stream.isStreaming) return@postDelayed
             try {
                 val texture = stream.getGlInterface().getSurfaceTexture()
@@ -859,7 +940,8 @@ class RtspPublisher(
         const val TRANSPORT_DIAGNOSTIC_INTERVAL_MILLIS = 2_000L
         const val KTOR_FAILURE_GRACE_MILLIS = RTSP_SOCKET_TIMEOUT_MILLIS + 2_000L
         const val RETRY_ATTEMPT_DEADLINE_MILLIS = 12_000L
+        // Five attempts use 1, 2, 4, 8, and 8 second transport-only backoff before local-only mode.
+        const val MAX_LOCAL_RECORDING_RETRY_ATTEMPTS = 5
         const val TRANSPORT_REBUILD_DELAY_MILLIS = 750L
-        val mainHandler = Handler(Looper.getMainLooper())
     }
 }

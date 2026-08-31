@@ -245,6 +245,8 @@ def _handler_for(
                             "state": result.state,
                             "event_id": result.event_id,
                             "sha256": result.sha256,
+                            "authoritative_media_sha256": result.sha256,
+                            "validated": True,
                             "byte_size": result.byte_size,
                             "idempotent": result.idempotent,
                         },

@@ -35,6 +35,46 @@ def test_valid_streamed_upload_promotes_phone_media_and_preserves_network_event(
     assert resolve_authoritative_event_media(events_root, event_id) == result.path
 
 
+def test_phone_field_upload_creates_phone_authoritative_event_without_network_provenance(
+    tmp_path: Path,
+) -> None:
+    event_id = str(uuid4())
+    events_root = tmp_path / "events"
+    body = b"phone-field-mp4"
+
+    result = _service(events_root).ingest(
+        event_id,
+        _headers(body)
+        | {
+            "X-Foresight-Event-Origin": "phone_field",
+            "X-Foresight-Event-Authority": "PHONE_FIELD",
+            "X-Foresight-Event-Termination-Reason": "CAPTURE_STOP",
+            "X-Foresight-Capture-Generation": "7",
+            "X-Foresight-Source-Recording-Sha256": "a" * 64,
+        },
+        io.BytesIO(body),
+    )
+
+    manifest = json.loads((events_root / event_id / "manifest.json").read_text())
+    assert result.path == events_root / event_id / "phone_media" / "authoritative.mp4"
+    assert manifest["event_origin"] == "phone_field"
+    assert manifest["event_authority"] == "phone_local"
+    assert "network_capture" not in manifest
+    assert "media" not in manifest
+    assert manifest["phone_field"]["termination_reason"] == "CAPTURE_STOP"
+    assert resolve_authoritative_event_media(events_root, event_id) == result.path
+
+
+def test_phone_field_origin_authority_mismatch_is_rejected(tmp_path: Path) -> None:
+    body = b"media"
+    with pytest.raises(PhoneMediaIngestError, match="origin and authority"):
+        _service(tmp_path / "events").ingest(
+            str(uuid4()),
+            _headers(body) | {"X-Foresight-Event-Origin": "phone_field"},
+            io.BytesIO(body),
+        )
+
+
 @pytest.mark.parametrize("event_id", ["not-a-uuid", "../" + str(uuid4())])
 def test_rejects_invalid_event_id(tmp_path: Path, event_id: str) -> None:
     body = b"x"

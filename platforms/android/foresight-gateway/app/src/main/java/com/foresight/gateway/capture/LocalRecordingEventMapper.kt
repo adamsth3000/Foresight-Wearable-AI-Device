@@ -29,8 +29,7 @@ internal class LocalRecordingEventMapper {
     fun start(eventId: String, context: LocalRecordingContext, utc: Instant, monotonicMillis: Long): LocalEventBoundary {
         require(context.isRecording) { "no active local recording" }
         require(eventId !in starts) { "event already has an active local boundary" }
-        return LocalEventBoundary(eventId, context.recordingId, context.sourceSessionId, context.captureGeneration, utc, monotonicMillis,
-            (monotonicMillis - context.startedMonotonicMillis).coerceAtLeast(0L)).also { starts[eventId] = it }
+        return boundary(eventId, context, utc, monotonicMillis).also { starts[eventId] = it }
     }
 
     fun end(eventId: String, context: LocalRecordingContext, utc: Instant, monotonicMillis: Long): Pair<LocalEventBoundary, LocalEventBoundary> {
@@ -38,8 +37,25 @@ internal class LocalRecordingEventMapper {
         val start = requireNotNull(starts[eventId]) { "no matching authoritative event start" }
         require(start.recordingId == context.recordingId) { "event belongs to a different local recording" }
         starts.remove(eventId)
-        val end = LocalEventBoundary(eventId, context.recordingId, context.sourceSessionId, context.captureGeneration, utc, monotonicMillis,
-            (monotonicMillis - context.startedMonotonicMillis).coerceAtLeast(0L))
+        val end = boundary(eventId, context, utc, monotonicMillis)
         return start to end
+    }
+
+    fun boundary(
+        eventId: String,
+        context: LocalRecordingContext,
+        utc: Instant,
+        monotonicMillis: Long,
+    ): LocalEventBoundary {
+        require(context.isRecording) { "no active local recording" }
+        return LocalEventBoundary(
+            eventId = eventId,
+            recordingId = context.recordingId,
+            sourceSessionId = context.sourceSessionId,
+            captureGeneration = context.captureGeneration,
+            receiptUtc = utc,
+            receiptMonotonicMillis = monotonicMillis,
+            recordingOffsetMillis = (monotonicMillis - context.startedMonotonicMillis).coerceAtLeast(0L),
+        )
     }
 }

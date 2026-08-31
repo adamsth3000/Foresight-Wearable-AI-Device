@@ -6,6 +6,10 @@ enum class StreamLifecycle {
     PREPARING,
     CONNECTING,
     RECONNECTING,
+    /** Live RTSP is unavailable while the local camera/audio recording remains authoritative. */
+    DEGRADED,
+    /** No RTSP endpoint is configured; a Field local recording is active. */
+    OFFLINE,
     STREAMING,
     STOPPING,
     ERROR,

@@ -18,4 +18,9 @@ class StreamLifecycleTest {
     fun `reconnecting is distinct from connected streaming`() {
         assertEquals("RECONNECTING", StreamLifecycle.RECONNECTING.name)
     }
+
+    @Test
+    fun `degraded is distinct from capture failure`() {
+        assertEquals("DEGRADED", StreamLifecycle.DEGRADED.name)
+    }
 }

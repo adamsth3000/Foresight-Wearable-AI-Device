@@ -5,28 +5,40 @@ import com.foresight.gateway.capture.CaptureEventInterlock
 import com.foresight.gateway.capture.EventMediaExtractionState
 import com.foresight.gateway.capture.EventMediaSyncState
 import com.foresight.gateway.transport.StreamLifecycle
+import com.foresight.gateway.mode.GatewayOperatingMode
 
 /** Maps authoritative service and laptop responses to the visible gateway controls. */
 internal data class GatewayPresentation(
+    val mode: GatewayOperatingMode,
     val capture: StreamLifecycle,
     val event: EventControlState,
 ) {
-    val captureLightOn: Boolean get() = capture == StreamLifecycle.STREAMING
+    val captureLightOn: Boolean
+        get() = capture == StreamLifecycle.STREAMING || capture == StreamLifecycle.RECONNECTING ||
+            capture == StreamLifecycle.DEGRADED || capture == StreamLifecycle.OFFLINE
     val startCaptureEnabled: Boolean get() = capture == StreamLifecycle.IDLE || capture == StreamLifecycle.ERROR
     val endCaptureEnabled: Boolean
         get() = !startCaptureEnabled && capture != StreamLifecycle.STOPPING &&
-            !CaptureEventInterlock.blocksCaptureStop(event.state)
+            (mode == GatewayOperatingMode.FIELD || !CaptureEventInterlock.blocksCaptureStop(event.state))
 
     val captureLabel: String get() = when (capture) {
         StreamLifecycle.IDLE -> "STOPPED"
         StreamLifecycle.STREAMING -> "STREAMING"
+        StreamLifecycle.DEGRADED -> "LOCAL RECORDING / RTSP DEGRADED"
+        StreamLifecycle.OFFLINE -> "LOCAL RECORDING / RTSP OFFLINE"
         else -> capture.name
     }
 
     val eventLightOn: Boolean get() = event.state == "recording_bounded_event"
-    val startEventEnabled: Boolean get() = capture == StreamLifecycle.STREAMING && event.canStartBounded
-    val endEventEnabled: Boolean get() = capture == StreamLifecycle.STREAMING && event.canEndBounded
-    val quickEventEnabled: Boolean get() = capture == StreamLifecycle.STREAMING && event.state == "idle"
+    val localCaptureActive: Boolean
+        get() = capture == StreamLifecycle.STREAMING || capture == StreamLifecycle.RECONNECTING ||
+            capture == StreamLifecycle.DEGRADED || capture == StreamLifecycle.OFFLINE
+    val startEventEnabled: Boolean
+        get() = (if (mode == GatewayOperatingMode.FIELD) localCaptureActive else capture == StreamLifecycle.STREAMING) &&
+            event.canStartBounded
+    val endEventEnabled: Boolean get() = localCaptureActive && event.canEndBounded
+    val quickEventEnabled: Boolean
+        get() = mode == GatewayOperatingMode.LAB && capture == StreamLifecycle.STREAMING && event.state == "idle"
 
     val eventLabel: String get() = when (event.state) {
         "idle" -> "IDLE"

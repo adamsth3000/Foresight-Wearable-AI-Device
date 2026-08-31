@@ -20,6 +20,16 @@ internal enum class LocalEventMappingState {
     FAILED,
 }
 
+internal enum class LocalEventAuthority {
+    LAPTOP,
+    PHONE_FIELD,
+}
+
+internal enum class LocalEventTerminationReason {
+    USER_END,
+    CAPTURE_STOP,
+}
+
 internal enum class EventMediaExtractionState {
     PENDING,
     EXTRACTING,
@@ -33,6 +43,28 @@ enum class EventMediaSyncState {
     SYNCED,
     FAILED,
 }
+
+internal enum class EventMediaSyncAttemptResult {
+    SYNCED,
+    FAILED,
+}
+
+internal data class EventMediaSyncHistoryEntry(
+    val attemptId: String,
+    val eventId: String,
+    val eventOrigin: String,
+    val authority: LocalEventAuthority,
+    val startedUtc: Instant,
+    val destinationIdentity: String,
+    val localMediaSha256: String,
+    val byteSize: Long,
+    val priorAttemptId: String? = null,
+    val completedUtc: Instant? = null,
+    val result: EventMediaSyncAttemptResult? = null,
+    val laptopValidated: Boolean = false,
+    val authoritativeMediaSha256: String? = null,
+    val failureReason: String? = null,
+)
 
 internal data class LocalRecordingMetadata(
     val recordingId: String,
@@ -70,6 +102,8 @@ internal data class LocalEventMapping(
     val durationMillis: Long? = null,
     val state: LocalEventMappingState = LocalEventMappingState.STARTED,
     val failureDetail: String? = null,
+    val authority: LocalEventAuthority = LocalEventAuthority.LAPTOP,
+    val terminationReason: LocalEventTerminationReason? = null,
 )
 
 internal data class EventMediaMetadata(
@@ -100,6 +134,17 @@ internal data class EventMediaSyncPlan(
     val event: LocalEventMapping,
     val recording: LocalRecordingMetadata,
     val privateFile: File,
+)
+
+internal data class EventMediaSyncAttemptPlan(
+    val syncPlan: EventMediaSyncPlan,
+    val attempt: EventMediaSyncHistoryEntry,
+)
+
+internal data class EventMediaSyncSummary(
+    val readyLocalOnlyCount: Int,
+    val syncedCount: Int,
+    val retryableCount: Int,
 )
 
 internal fun interface LocalRecordingRepositoryLogger {
@@ -166,6 +211,7 @@ internal class LocalRecordingMetadataRepository(
             observedStartUtc = boundary.receiptUtc,
             observedStartMonotonicMillis = boundary.receiptMonotonicMillis,
             startOffsetMillis = boundary.recordingOffsetMillis,
+            authority = LocalEventAuthority.LAPTOP,
         )
         ledger = ledger.copy(events = ledger.events + (event.eventId to event))
         persist(ledger)
@@ -174,6 +220,50 @@ internal class LocalRecordingMetadataRepository(
 
     @Synchronized
     fun recordAuthoritativeEnd(start: LocalEventBoundary, end: LocalEventBoundary): LocalEventMapping {
+        return completeEvent(start, end, LocalEventTerminationReason.USER_END)
+    }
+
+    @Synchronized
+    fun recordFieldStart(boundary: LocalEventBoundary): LocalEventMapping {
+        require(boundary.recordingId in ledger.recordings) { "field event start references an unknown recording" }
+        require(ledger.events.values.none {
+            it.authority == LocalEventAuthority.PHONE_FIELD && it.state == LocalEventMappingState.STARTED
+        }) { "a field event is already active" }
+        require(boundary.eventId !in ledger.events) { "field event ID already exists" }
+        val event = LocalEventMapping(
+            eventId = boundary.eventId,
+            recordingId = boundary.recordingId,
+            observedStartUtc = boundary.receiptUtc,
+            observedStartMonotonicMillis = boundary.receiptMonotonicMillis,
+            startOffsetMillis = boundary.recordingOffsetMillis,
+            authority = LocalEventAuthority.PHONE_FIELD,
+        )
+        ledger = ledger.copy(events = ledger.events + (event.eventId to event))
+        persist(ledger)
+        return event
+    }
+
+    @Synchronized
+    fun completeFieldEvent(eventId: String, end: LocalEventBoundary, reason: LocalEventTerminationReason): LocalEventMapping {
+        val start = requireNotNull(ledger.events[eventId]) { "no persisted field event start" }
+        require(start.authority == LocalEventAuthority.PHONE_FIELD) { "event is not phone-authoritative" }
+        val startBoundary = LocalEventBoundary(
+            eventId, start.recordingId, "", 0, start.observedStartUtc,
+            start.observedStartMonotonicMillis, start.startOffsetMillis,
+        )
+        return completeEvent(startBoundary, end, reason)
+    }
+
+    @Synchronized
+    fun activeFieldEvent(): LocalEventMapping? = ledger.events.values.singleOrNull {
+        it.authority == LocalEventAuthority.PHONE_FIELD && it.state == LocalEventMappingState.STARTED
+    }
+
+    private fun completeEvent(
+        start: LocalEventBoundary,
+        end: LocalEventBoundary,
+        reason: LocalEventTerminationReason,
+    ): LocalEventMapping {
         require(start.eventId == end.eventId) { "event start and end IDs differ" }
         require(start.recordingId == end.recordingId) { "event boundaries refer to different recordings" }
         val current = requireNotNull(ledger.events[start.eventId]) { "no persisted event start exists" }
@@ -185,28 +275,39 @@ internal class LocalRecordingMetadataRepository(
             endOffsetMillis = end.recordingOffsetMillis,
             durationMillis = (end.recordingOffsetMillis - current.startOffsetMillis).coerceAtLeast(0L),
             state = LocalEventMappingState.READY,
+            terminationReason = reason,
         )
         ledger = ledger.copy(events = ledger.events + (ready.eventId to ready))
         persist(ledger)
         return ready
     }
 
-    @Synchronized
     fun finalizeRecording(context: LocalRecordingContext, stopUtc: Instant): LocalRecordingMetadata {
-        val current = requireNotNull(ledger.recordings[context.recordingId]) { "unknown recording finalization" }
+        // Hashing a large MP4 is deliberately outside the ledger monitor. The serialized capture
+        // worker owns finalization, while UI reads must not wait behind filesystem I/O.
+        val current = synchronized(this) {
+            requireNotNull(ledger.recordings[context.recordingId]) { "unknown recording finalization" }
+        }
         val media = recordingFile(current.localMediaFileName)
         require(media.isFile) { "finalized local media file is missing" }
-        val finalized = current.copy(
-            recordingStopUtc = stopUtc,
-            finalized = true,
-            interrupted = false,
-            failureDetail = null,
-            byteSize = media.length(),
-            sha256 = sha256(media),
-        )
-        ledger = ledger.copy(recordings = ledger.recordings + (finalized.recordingId to finalized))
-        persist(ledger)
-        return finalized
+        val byteSize = media.length()
+        val sha256 = sha256(media)
+        return synchronized(this) {
+            val latest = requireNotNull(ledger.recordings[context.recordingId]) { "recording disappeared during finalization" }
+            require(latest.localMediaFileName == current.localMediaFileName) { "recording file changed during finalization" }
+            require(!latest.interrupted) { "recording was interrupted during finalization" }
+            val finalized = current.copy(
+                recordingStopUtc = stopUtc,
+                finalized = true,
+                interrupted = false,
+                failureDetail = null,
+                byteSize = byteSize,
+                sha256 = sha256,
+            )
+            ledger = ledger.copy(recordings = ledger.recordings + (finalized.recordingId to finalized))
+            persist(ledger)
+            finalized
+        }
     }
 
     @Synchronized
@@ -322,7 +423,7 @@ internal class LocalRecordingMetadataRepository(
     }
 
     @Synchronized
-    fun beginEventMediaSync(eventId: String): EventMediaSyncPlan {
+    fun beginEventMediaSync(eventId: String, destinationIdentity: String): EventMediaSyncAttemptPlan {
         val media = requireNotNull(ledger.eventMedia[eventId]) { "event media metadata does not exist" }
         require(media.extractionState == EventMediaExtractionState.READY) {
             "only READY event media may sync"
@@ -340,29 +441,91 @@ internal class LocalRecordingMetadataRepository(
             "READY event media is missing or no longer matches durable metadata"
         }
         val uploading = media.copy(syncState = EventMediaSyncState.UPLOADING, syncDetail = null)
-        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to uploading))
+        val previous = ledger.syncHistory.lastOrNull { it.eventId == eventId }
+        val attempt = EventMediaSyncHistoryEntry(
+            attemptId = java.util.UUID.randomUUID().toString(),
+            eventId = eventId,
+            eventOrigin = if (event.authority == LocalEventAuthority.PHONE_FIELD) "phone_field" else "laptop_control",
+            authority = event.authority,
+            startedUtc = Instant.now(),
+            destinationIdentity = destinationIdentity,
+            localMediaSha256 = requireNotNull(uploading.outputSha256),
+            byteSize = requireNotNull(uploading.outputByteSize),
+            priorAttemptId = previous?.attemptId,
+        )
+        ledger = ledger.copy(
+            eventMedia = ledger.eventMedia + (eventId to uploading),
+            syncHistory = (ledger.syncHistory + attempt).takeLast(MAX_SYNC_HISTORY),
+        )
         persist(ledger)
-        return EventMediaSyncPlan(uploading, event, recording, file)
+        return EventMediaSyncAttemptPlan(EventMediaSyncPlan(uploading, event, recording, file), attempt)
     }
 
     @Synchronized
-    fun completeEventMediaSync(eventId: String, detail: String = "verified by laptop"): EventMediaMetadata {
+    fun beginEventMediaSync(eventId: String): EventMediaSyncPlan =
+        beginEventMediaSync(eventId, "unspecified").syncPlan
+
+    @Synchronized
+    fun completeEventMediaSync(
+        eventId: String,
+        attemptId: String,
+        authoritativeMediaSha256: String,
+        detail: String = "verified by laptop",
+    ): EventMediaMetadata {
         val current = requireNotNull(ledger.eventMedia[eventId]) { "event media metadata does not exist" }
         require(current.syncState == EventMediaSyncState.UPLOADING) { "event media sync is not active" }
         val synced = current.copy(syncState = EventMediaSyncState.SYNCED, syncDetail = detail)
-        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to synced))
+        ledger = ledger.copy(
+            eventMedia = ledger.eventMedia + (eventId to synced),
+            syncHistory = completeSyncAttempt(
+                attemptId,
+                EventMediaSyncAttemptResult.SYNCED,
+                laptopValidated = true,
+                authoritativeMediaSha256 = authoritativeMediaSha256,
+                failureReason = null,
+            ),
+        )
         persist(ledger)
         return synced
     }
 
     @Synchronized
-    fun failEventMediaSync(eventId: String, detail: String): EventMediaMetadata? {
+    fun completeEventMediaSync(eventId: String, detail: String = "verified by laptop"): EventMediaMetadata {
+        val media = requireNotNull(ledger.eventMedia[eventId]) { "event media metadata does not exist" }
+        val attempt = requireNotNull(ledger.syncHistory.lastOrNull { it.eventId == eventId && it.result == null }) {
+            "sync attempt does not exist"
+        }
+        return completeEventMediaSync(
+            eventId,
+            attempt.attemptId,
+            requireNotNull(media.outputSha256),
+            detail,
+        )
+    }
+
+    @Synchronized
+    fun failEventMediaSync(eventId: String, attemptId: String, detail: String): EventMediaMetadata? {
         val current = ledger.eventMedia[eventId] ?: return null
         if (current.extractionState != EventMediaExtractionState.READY) return current
         val failed = current.copy(syncState = EventMediaSyncState.FAILED, syncDetail = detail)
-        ledger = ledger.copy(eventMedia = ledger.eventMedia + (eventId to failed))
+        ledger = ledger.copy(
+            eventMedia = ledger.eventMedia + (eventId to failed),
+            syncHistory = completeSyncAttempt(
+                attemptId,
+                EventMediaSyncAttemptResult.FAILED,
+                laptopValidated = false,
+                authoritativeMediaSha256 = null,
+                failureReason = detail,
+            ),
+        )
         persist(ledger)
         return failed
+    }
+
+    @Synchronized
+    fun failEventMediaSync(eventId: String, detail: String): EventMediaMetadata? {
+        val attempt = ledger.syncHistory.lastOrNull { it.eventId == eventId && it.result == null } ?: return null
+        return failEventMediaSync(eventId, attempt.attemptId, detail)
     }
 
     @Synchronized
@@ -371,6 +534,29 @@ internal class LocalRecordingMetadataRepository(
     @Synchronized
     fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
         ledger.eventMedia[eventId]?.extractionState
+
+    @Synchronized
+    fun syncHistory(): List<EventMediaSyncHistoryEntry> = ledger.syncHistory.sortedByDescending { it.startedUtc }
+
+    @Synchronized
+    fun syncableEventIds(): List<String> = ledger.eventMedia.values
+        .filter {
+            it.extractionState == EventMediaExtractionState.READY &&
+                (it.syncState == EventMediaSyncState.LOCAL_ONLY || it.syncState == EventMediaSyncState.FAILED)
+        }
+        .sortedBy { ledger.events[it.eventId]?.observedEndUtc ?: Instant.EPOCH }
+        .map { it.eventId }
+
+    @Synchronized
+    fun syncSummary(): EventMediaSyncSummary = EventMediaSyncSummary(
+        readyLocalOnlyCount = ledger.eventMedia.values.count {
+            it.extractionState == EventMediaExtractionState.READY && it.syncState == EventMediaSyncState.LOCAL_ONLY
+        },
+        syncedCount = ledger.eventMedia.values.count { it.syncState == EventMediaSyncState.SYNCED },
+        retryableCount = ledger.eventMedia.values.count {
+            it.extractionState == EventMediaExtractionState.READY && it.syncState == EventMediaSyncState.FAILED
+        },
+    )
 
     @Synchronized
     fun latestSyncableEventId(): String? = ledger.eventMedia.values
@@ -440,7 +626,18 @@ internal class LocalRecordingMetadataRepository(
                 media
             }
         }
-        val recovered = LocalRecordingLedger(recoveredRecordings, recoveredEvents, recoveredEventMedia)
+        val recoveredHistory = current.syncHistory.map { attempt ->
+            if (attempt.result == null) {
+                attempt.copy(
+                    completedUtc = Instant.now(),
+                    result = EventMediaSyncAttemptResult.FAILED,
+                    failureReason = "process ended during event-media upload",
+                )
+            } else {
+                attempt
+            }
+        }
+        val recovered = LocalRecordingLedger(recoveredRecordings, recoveredEvents, recoveredEventMedia, recoveredHistory)
         return if (recovered == current) current else recovered
     }
 
@@ -526,6 +723,7 @@ internal class LocalRecordingMetadataRepository(
         put("recordings", JSONArray().apply { value.recordings.values.sortedBy { it.recordingId }.forEach { put(it.toJson()) } })
         put("events", JSONArray().apply { value.events.values.sortedBy { it.eventId }.forEach { put(it.toJson()) } })
         put("event_media", JSONArray().apply { value.eventMedia.values.sortedBy { it.eventId }.forEach { put(it.toJson()) } })
+        put("sync_history", JSONArray().apply { value.syncHistory.forEach { put(it.toJson()) } })
     }.toString()
 
     private fun decode(serialized: String): LocalRecordingLedger {
@@ -535,10 +733,12 @@ internal class LocalRecordingMetadataRepository(
         val events = root.getJSONArray("events").toList { it.toEvent() }.associateBy { it.eventId }
         val eventMediaArray = root.optJSONArray("event_media") ?: JSONArray()
         val eventMedia = eventMediaArray.toList { it.toEventMedia() }.associateBy { it.eventId }
+        val syncHistoryArray = root.optJSONArray("sync_history") ?: JSONArray()
+        val syncHistory = syncHistoryArray.toList { it.toSyncHistoryEntry() }
         require(recordings.size == root.getJSONArray("recordings").length()) { "duplicate recording IDs in metadata" }
         require(events.size == root.getJSONArray("events").length()) { "duplicate event IDs in metadata" }
         require(eventMedia.size == eventMediaArray.length()) { "duplicate event-media IDs in metadata" }
-        return LocalRecordingLedger(recordings, events, eventMedia)
+        return LocalRecordingLedger(recordings, events, eventMedia, syncHistory.takeLast(MAX_SYNC_HISTORY))
     }
 
     private fun LocalRecordingMetadata.toJson(): JSONObject = JSONObject().apply {
@@ -577,6 +777,8 @@ internal class LocalRecordingMetadataRepository(
         put("duration_ms", durationMillis)
         put("state", state.name)
         put("failure_detail", failureDetail)
+        put("authority", authority.name)
+        put("termination_reason", terminationReason?.name)
     }
 
     private fun EventMediaMetadata.toJson(): JSONObject = JSONObject().apply {
@@ -600,6 +802,23 @@ internal class LocalRecordingMetadataRepository(
         put("failure_detail", failureDetail)
         put("sync_state", syncState.name)
         put("sync_detail", syncDetail)
+    }
+
+    private fun EventMediaSyncHistoryEntry.toJson(): JSONObject = JSONObject().apply {
+        put("attempt_id", attemptId)
+        put("event_id", eventId)
+        put("event_origin", eventOrigin)
+        put("authority", authority.name)
+        put("attempt_started_utc", startedUtc.toString())
+        put("destination_identity", destinationIdentity)
+        put("local_media_sha256", localMediaSha256)
+        put("byte_size", byteSize)
+        put("prior_attempt_id", priorAttemptId)
+        put("attempt_completed_utc", completedUtc?.toString())
+        put("result", result?.name)
+        put("laptop_validated", laptopValidated)
+        put("authoritative_media_sha256", authoritativeMediaSha256)
+        put("failure_reason", failureReason)
     }
 
     private fun JSONObject.toRecording(): LocalRecordingMetadata = LocalRecordingMetadata(
@@ -638,6 +857,8 @@ internal class LocalRecordingMetadataRepository(
         durationMillis = optNullableLong("duration_ms"),
         state = LocalEventMappingState.valueOf(getString("state")),
         failureDetail = optNullableString("failure_detail"),
+        authority = optNullableString("authority")?.let(LocalEventAuthority::valueOf) ?: LocalEventAuthority.LAPTOP,
+        terminationReason = optNullableString("termination_reason")?.let(LocalEventTerminationReason::valueOf),
     )
 
     private fun JSONObject.toEventMedia(): EventMediaMetadata = EventMediaMetadata(
@@ -664,6 +885,49 @@ internal class LocalRecordingMetadataRepository(
         syncDetail = optNullableString("sync_detail"),
     )
 
+    private fun JSONObject.toSyncHistoryEntry(): EventMediaSyncHistoryEntry = EventMediaSyncHistoryEntry(
+        attemptId = getString("attempt_id"),
+        eventId = getString("event_id"),
+        eventOrigin = getString("event_origin"),
+        authority = LocalEventAuthority.valueOf(getString("authority")),
+        startedUtc = Instant.parse(getString("attempt_started_utc")),
+        destinationIdentity = getString("destination_identity"),
+        localMediaSha256 = getString("local_media_sha256"),
+        byteSize = getLong("byte_size"),
+        priorAttemptId = optNullableString("prior_attempt_id"),
+        completedUtc = optNullableString("attempt_completed_utc")?.let(Instant::parse),
+        result = optNullableString("result")?.let(EventMediaSyncAttemptResult::valueOf),
+        laptopValidated = optNullableBoolean("laptop_validated") ?: false,
+        authoritativeMediaSha256 = optNullableString("authoritative_media_sha256"),
+        failureReason = optNullableString("failure_reason"),
+    )
+
+    private fun completeSyncAttempt(
+        attemptId: String,
+        result: EventMediaSyncAttemptResult,
+        laptopValidated: Boolean,
+        authoritativeMediaSha256: String?,
+        failureReason: String?,
+    ): List<EventMediaSyncHistoryEntry> {
+        var found = false
+        val updated = ledger.syncHistory.map { attempt ->
+            if (attempt.attemptId == attemptId) {
+                found = true
+                attempt.copy(
+                    completedUtc = Instant.now(),
+                    result = result,
+                    laptopValidated = laptopValidated,
+                    authoritativeMediaSha256 = authoritativeMediaSha256,
+                    failureReason = failureReason,
+                )
+            } else {
+                attempt
+            }
+        }
+        require(found) { "sync attempt does not exist" }
+        return updated
+    }
+
     private fun JSONObject.optNullableString(name: String): String? =
         if (isNull(name)) null else getString(name)
 
@@ -680,6 +944,7 @@ internal class LocalRecordingMetadataRepository(
         const val TAG = "LocalRecordingMetadata"
         const val LEDGER_FILE_NAME = "local-recording-ledger.json"
         const val HASH_BUFFER_BYTES = 64 * 1024
+        const val MAX_SYNC_HISTORY = 100
         const val ANDROID_REMUX_METHOD = "android_mediaextractor_mediummuxer_remux"
         val SAFE_EVENT_ID = Regex("[A-Za-z0-9_-]+")
     }
@@ -689,4 +954,5 @@ internal data class LocalRecordingLedger(
     val recordings: Map<String, LocalRecordingMetadata> = emptyMap(),
     val events: Map<String, LocalEventMapping> = emptyMap(),
     val eventMedia: Map<String, EventMediaMetadata> = emptyMap(),
+    val syncHistory: List<EventMediaSyncHistoryEntry> = emptyList(),
 )

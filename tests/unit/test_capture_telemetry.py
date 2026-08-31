@@ -210,6 +210,8 @@ def test_receiver_streams_phone_media_to_the_existing_private_listener(tmp_path:
     finally:
         receiver.stop()
     assert payload["state"] == "synced"
+    assert payload["validated"] is True
+    assert payload["authoritative_media_sha256"] == hashlib.sha256(media).hexdigest()
     assert (event_dir / "phone_media" / "authoritative.mp4").read_bytes() == media
 
 
