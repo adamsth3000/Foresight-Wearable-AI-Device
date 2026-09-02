@@ -5,6 +5,11 @@ plugins {
 android {
     namespace = "com.foresight.gateway"
     compileSdk = 37
+    ndkVersion = "27.3.13750724"
+
+    // Keep the NDK machine-local. GW1-A developers set FORESIGHT_ANDROID_NDK to
+    // the reproducible NDK r27d installation instead of committing local.properties.
+    providers.environmentVariable("FORESIGHT_ANDROID_NDK").orNull?.let { ndkPath = it }
 
     defaultConfig {
         applicationId = "com.foresight.gateway"
@@ -12,10 +17,20 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildFeatures {
         buildConfig = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     compileOptions {

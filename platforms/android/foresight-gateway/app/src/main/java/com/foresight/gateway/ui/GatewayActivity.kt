@@ -38,6 +38,8 @@ import com.foresight.gateway.capture.EventMediaSyncSummary
 import com.foresight.gateway.control.EventControlClient
 import com.foresight.gateway.control.EventControlState
 import com.foresight.gateway.control.EventControlUiState
+import com.foresight.gateway.gopro.GoProIngressSnapshot
+import com.foresight.gateway.gopro.GoProSourceStatus
 import com.foresight.gateway.mode.GatewayOperatingMode
 import com.foresight.gateway.mode.GatewayOperatingModePolicy
 
@@ -60,6 +62,10 @@ class GatewayActivity : Activity() {
     private lateinit var syncSummaryText: TextView
     private lateinit var syncHistoryContainer: LinearLayout
     private lateinit var syncReceiptText: TextView
+    private lateinit var goProDestinationText: TextView
+    private lateinit var goProStatusText: TextView
+    private lateinit var startGoProButton: Button
+    private lateinit var stopGoProButton: Button
     private lateinit var labModeButton: Button
     private lateinit var fieldModeButton: Button
     private lateinit var previewSurface: SurfaceView
@@ -294,6 +300,24 @@ class GatewayActivity : Activity() {
             dp(48),
         ))
 
+        controls.addView(panelLabel("GOPRO INGEST (GW1-A DIAGNOSTIC)"))
+        goProDestinationText = TextView(this@GatewayActivity).apply { textSize = 14f }
+        goProStatusText = TextView(this@GatewayActivity).apply { textSize = 14f }
+        controls.addView(goProDestinationText)
+        controls.addView(goProStatusText)
+        val goProRow = LinearLayout(this@GatewayActivity).apply { orientation = LinearLayout.HORIZONTAL }
+        startGoProButton = Button(this@GatewayActivity).apply {
+            text = "START GOPRO INGEST"
+            setOnClickListener { startGoProIngress() }
+        }
+        stopGoProButton = Button(this@GatewayActivity).apply {
+            text = "STOP GOPRO INGEST"
+            setOnClickListener { stopGoProIngress() }
+        }
+        goProRow.addView(startGoProButton, LinearLayout.LayoutParams(0, dp(52), 1f))
+        goProRow.addView(stopGoProButton, LinearLayout.LayoutParams(0, dp(52), 1f))
+        controls.addView(goProRow)
+
         controls.addView(panelLabel("OPERATING MODE"))
         val modeRow = LinearLayout(this@GatewayActivity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -479,7 +503,38 @@ class GatewayActivity : Activity() {
         renderSyncHistory(history, captureBinder?.syncableEventIds().orEmpty())
         logSyncUiDecision(syncPresentation)
         captureBinder?.updateEventState(presentation.event.state)
+        renderGoProIngress(captureBinder?.goProIngressSnapshot() ?: CaptureForegroundService.currentGoProStatus)
         clearStoppedPreviewIfNeeded(status.lifecycle)
+    }
+
+    private fun startGoProIngress() {
+        startForegroundService(
+            Intent(this, CaptureForegroundService::class.java)
+                .setAction(CaptureForegroundService.ACTION_START_GOPRO_INGRESS),
+        )
+        renderStatus()
+    }
+
+    private fun stopGoProIngress() {
+        startService(
+            Intent(this, CaptureForegroundService::class.java)
+                .setAction(CaptureForegroundService.ACTION_STOP_GOPRO_INGRESS),
+        )
+        renderStatus()
+    }
+
+    private fun renderGoProIngress(snapshot: GoProIngressSnapshot) {
+        goProDestinationText.text = "Destination: ${snapshot.destination ?: "Start to discover Wi-Fi IPv4"}"
+        goProStatusText.text = buildString {
+            append("Status: ${snapshot.status}")
+            snapshot.detail?.let { append("\nDetail: $it") }
+            snapshot.metadata?.let {
+                append("\nVideo: ${it.videoSummary()}")
+                append("\nAudio: ${it.audioSummary()}")
+            }
+        }
+        startGoProButton.isEnabled = snapshot.status == GoProSourceStatus.STOPPED
+        stopGoProButton.isEnabled = snapshot.status != GoProSourceStatus.STOPPED
     }
 
     private fun clearStoppedPreviewIfNeeded(lifecycle: com.foresight.gateway.transport.StreamLifecycle) {

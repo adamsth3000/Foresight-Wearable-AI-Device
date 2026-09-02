@@ -17,6 +17,21 @@ rolling media storage, event extraction, cloud upload, or any Python capture-pip
 The project pins RootEncoder `2.8.0` from JitPack. RootEncoder is isolated in
 `RtspPublisher`; it is not a Foresight core contract.
 
+## GW1-A GoPro RTMP Ingress Proof
+
+GW1-A adds a diagnostic-only, user-started RTMP listener for a single GoPro
+publisher at `rtmp://PHONE_WIFI_IPV4:1935/gopro`. It uses FFmpeg 9.0.1 static
+arm64-v8a libraries built for Android API 26, with LGPL 2.1+, GPL disabled, and
+nonfree disabled. The native listener only identifies H.264/AAC stream metadata
+and discards packets; it does not preview, decode, record, extract, upload, or
+change the existing RTSP/FIELD event controls.
+
+The listener is unauthenticated in this narrow proof and exists only while the
+user explicitly starts it. Set `FORESIGHT_ANDROID_NDK` to the local NDK r27d
+path when Gradle cannot locate NDK `27.3.13750724` through the Android SDK.
+Full archive hashes and rebuild provenance are in
+`app/src/main/cpp/third_party/ffmpeg/arm64-v8a/FFMPEG_PROVENANCE.md`.
+
 ## Build And Install
 
 From this directory, after installing Gradle 8.10.2 or generating a Gradle

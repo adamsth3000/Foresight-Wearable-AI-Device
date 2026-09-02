@@ -13,13 +13,18 @@ import android.os.IBinder
 import android.util.Log
 import android.view.SurfaceView
 import com.foresight.gateway.R
+import com.foresight.gateway.gopro.GoProIngressSnapshot
+import com.foresight.gateway.gopro.GoProLanAddressProvider
+import com.foresight.gateway.gopro.GoProRtmpIngress
+import com.foresight.gateway.gopro.GoProSourceStatus
 import com.foresight.gateway.metadata.CaptureSessionMetadata
 import com.foresight.gateway.mode.GatewayOperatingMode
 import com.foresight.gateway.transport.StreamLifecycle
 
 /** User-started foreground service that keeps camera and microphone capture visible. */
-class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
+class CaptureForegroundService : Service(), PhoneCaptureController.Listener, GoProRtmpIngress.Listener {
     private lateinit var controller: PhoneCaptureController
+    private lateinit var goProIngress: GoProRtmpIngress
     @Volatile
     private var authoritativeEventState: String = "idle"
     @Volatile
@@ -29,6 +34,10 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         super.onCreate()
         createNotificationChannel()
         controller = PhoneCaptureController(this, this)
+        goProIngress = GoProRtmpIngress(
+            listener = this,
+            addressProvider = { GoProLanAddressProvider.discover(this) },
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -58,12 +67,23 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
             controller.stop()
                 }
             }
+
+            ACTION_START_GOPRO_INGRESS -> {
+                startGoProAsForeground("Starting GoPro RTMP ingest")
+                goProIngress.start()
+            }
+
+            ACTION_STOP_GOPRO_INGRESS -> {
+                goProIngress.stop()
+                if (currentStatus.lifecycle == StreamLifecycle.IDLE) removeForegroundIfUnused()
+            }
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         Log.i(TAG, "Service destroyed; requesting controller shutdown if it is still active.")
+        goProIngress.close()
         controller.stop()
         super.onDestroy()
     }
@@ -133,6 +153,12 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         internal fun syncSummary(): EventMediaSyncSummary = controller.syncSummary()
 
         internal fun syncableEventIds(): List<String> = controller.syncableEventIds()
+
+        fun startGoProIngress(): GoProIngressSnapshot = goProIngress.start()
+
+        fun stopGoProIngress(): GoProIngressSnapshot = goProIngress.stop()
+
+        fun goProIngressSnapshot(): GoProIngressSnapshot = goProIngress.snapshot()
     }
 
     override fun onCaptureStateChanged(
@@ -148,12 +174,15 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         } else if (lifecycle == StreamLifecycle.IDLE) {
             // Keep the activity-bound controller alive for a deterministic next START. This
             // removes foreground status without retaining camera, audio, encoder, or RTSP work.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
+            removeForegroundIfUnused()
+        }
+    }
+
+    override fun onGoProIngressChanged(snapshot: GoProIngressSnapshot) {
+        currentGoProStatus = snapshot
+        Log.i(TAG, "GoPro ingress state=${snapshot.status}; destination=${snapshot.destination}; detail=${snapshot.detail}")
+        if (snapshot.status != GoProSourceStatus.STOPPED) {
+            notificationManager().notify(NOTIFICATION_ID, buildNotification(snapshot.detail ?: "GoPro RTMP ingest ${snapshot.status.name.lowercase()}"))
         }
     }
 
@@ -169,6 +198,22 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun startGoProAsForeground(text: String) {
+        // Ingest does not use camera or microphone. Keep this service visible while it owns a
+        // listener, without changing the validated capture foreground-service declaration.
+        startForeground(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun removeForegroundIfUnused() {
+        if (currentGoProStatus.status != GoProSourceStatus.STOPPED) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
         }
     }
 
@@ -233,6 +278,8 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
     companion object {
         const val ACTION_START = "com.foresight.gateway.action.START_CAPTURE"
         const val ACTION_STOP = "com.foresight.gateway.action.STOP_CAPTURE"
+        const val ACTION_START_GOPRO_INGRESS = "com.foresight.gateway.action.START_GOPRO_INGRESS"
+        const val ACTION_STOP_GOPRO_INGRESS = "com.foresight.gateway.action.STOP_GOPRO_INGRESS"
         const val EXTRA_ENDPOINT = "com.foresight.gateway.extra.RTSP_ENDPOINT"
         const val EXTRA_TELEMETRY_ENDPOINT = "com.foresight.gateway.extra.TELEMETRY_ENDPOINT"
         const val EXTRA_OPERATING_MODE = "com.foresight.gateway.extra.OPERATING_MODE"
@@ -242,6 +289,9 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener {
         private const val TAG = "CaptureForegroundService"
         @Volatile
         var currentStatus = CaptureStatus(StreamLifecycle.IDLE, null, null)
+            private set
+        @Volatile
+        var currentGoProStatus = GoProIngressSnapshot()
             private set
     }
 }
