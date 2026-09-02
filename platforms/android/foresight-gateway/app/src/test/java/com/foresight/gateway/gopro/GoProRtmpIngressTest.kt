@@ -50,6 +50,76 @@ class GoProRtmpIngressTest {
     }
 
     @Test
+    fun `media diagnostics update snapshot without changing live lifecycle`() {
+        val fixture = Fixture()
+        fixture.ingress.start()
+        fixture.backend.emit(NativeIngressEvent.STREAM_METADATA, "metadata", GoProStreamMetadata(videoCodec = "h264"))
+
+        fixture.backend.emitDiagnostics(diagnostics(generationId = 1, videoPackets = 842, audioPackets = 1_294))
+
+        val snapshot = fixture.snapshots.last()
+        assertEquals(GoProSourceStatus.LIVE, snapshot.status)
+        assertEquals(842L, snapshot.mediaDiagnostics?.videoPacketCount)
+        assertEquals(1_294L, snapshot.mediaDiagnostics?.audioPacketCount)
+        assertEquals(18L, snapshot.mediaDiagnostics?.videoKeyframeCount)
+        assertEquals(28_433_000L, snapshot.mediaDiagnostics?.lastVideoPtsUs)
+        assertEquals(null, snapshot.mediaDiagnostics?.lastAudioDtsUs)
+    }
+
+    @Test
+    fun `encoded payload callbacks do not alter live lifecycle`() {
+        val fixture = Fixture()
+        fixture.ingress.start()
+        fixture.backend.emit(NativeIngressEvent.STREAM_METADATA, "metadata", GoProStreamMetadata(videoCodec = "h264"))
+
+        fixture.backend.emitVideoFormat(
+            GoProH264Format(
+                generationId = 1,
+                streamIndex = 0,
+                width = 1280,
+                height = 720,
+                timeBaseNumerator = 1,
+                timeBaseDenominator = 1_000,
+                extradata = byteArrayOf(1, 2),
+                representation = GoProH264Representation.AVCC,
+                nalLengthSize = 4,
+                codecName = "h264",
+            ),
+        )
+        fixture.backend.emitSample(
+            GoProEncodedSample(1, GoProStreamType.VIDEO, 0, byteArrayOf(1, 2, 3), 10, 10, true),
+        )
+
+        assertEquals(GoProSourceStatus.LIVE, fixture.snapshots.last().status)
+        assertEquals(GoProH264Representation.AVCC, fixture.snapshots.last().encodedTransportDiagnostics?.videoRepresentation)
+    }
+
+    @Test
+    fun `new publisher generation replaces rather than inherits diagnostics`() {
+        val fixture = Fixture()
+        fixture.ingress.start()
+        fixture.backend.emit(NativeIngressEvent.STREAM_METADATA, "metadata", GoProStreamMetadata(videoCodec = "h264"))
+        fixture.backend.emitDiagnostics(diagnostics(generationId = 1, videoPackets = 842, audioPackets = 1_294))
+
+        fixture.backend.emit(NativeIngressEvent.PUBLISHER_DISCONNECTED, "publisher lost")
+        fixture.backend.emit(NativeIngressEvent.PUBLISHER_CONNECTED, "publisher reconnected")
+        assertEquals(null, fixture.snapshots.last().mediaDiagnostics)
+
+        fixture.backend.emitDiagnostics(diagnostics(generationId = 2, videoPackets = 0, audioPackets = 0))
+        fixture.backend.emitDiagnostics(diagnostics(generationId = 1, videoPackets = 999, audioPackets = 999))
+
+        val diagnostics = fixture.snapshots.last().mediaDiagnostics
+        assertEquals(GoProSourceStatus.PUBLISHER_CONNECTED, fixture.snapshots.last().status)
+        assertEquals(2L, diagnostics?.generationId)
+        assertEquals(0L, diagnostics?.videoPacketCount)
+        assertEquals(0L, diagnostics?.audioPacketCount)
+        assertTrue(diagnostics!!.videoConfigReady)
+        assertTrue(diagnostics.audioConfigReady)
+        assertEquals(0, diagnostics.lastVideoPacketBytes)
+        assertEquals(null, diagnostics.lastVideoPtsUs)
+    }
+
+    @Test
     fun `stop is idempotent and suppresses late callbacks`() {
         val fixture = Fixture()
         fixture.ingress.start()
@@ -73,7 +143,9 @@ class GoProRtmpIngressTest {
             },
             addressProvider = { null },
             executor = Executor { it.run() },
-            backendFactory = { callback -> FakeBackend(callback).also { backend = it } },
+            backendFactory = { callbacks ->
+                FakeBackend(callbacks).also { backend = it }
+            },
         )
 
         ingress.start()
@@ -94,19 +166,21 @@ class GoProRtmpIngressTest {
             },
             addressProvider = { "192.168.1.175" },
             executor = Executor { it.run() },
-            backendFactory = { callback -> FakeBackend(callback).also { backend = it } },
+            backendFactory = { callbacks ->
+                FakeBackend(callbacks).also { backend = it }
+            },
         )
     }
 
     private class FakeBackend(
-        private val callback: (NativeIngressEvent, String, GoProStreamMetadata?) -> Unit,
+        private val callbacks: GoProIngressCallbacks,
     ) : GoProIngressBackend {
         var runCount = 0
         var stopCount = 0
 
         override fun run(host: String, port: Int, path: String) {
             runCount += 1
-            callback(NativeIngressEvent.LISTENING, "native listening", null)
+            callbacks.eventListener(NativeIngressEvent.LISTENING, "native listening", null)
         }
 
         override fun stop() {
@@ -114,7 +188,44 @@ class GoProRtmpIngressTest {
         }
 
         fun emit(event: NativeIngressEvent, detail: String, metadata: GoProStreamMetadata? = null) {
-            callback(event, detail, metadata)
+            callbacks.eventListener(event, detail, metadata)
         }
+
+        fun emitDiagnostics(diagnostics: GoProMediaDiagnostics) = callbacks.mediaDiagnosticsListener(diagnostics)
+
+        fun emitVideoFormat(format: GoProH264Format) = callbacks.videoFormatListener(format)
+
+        fun emitSample(sample: GoProEncodedSample) = callbacks.sampleListener(sample)
     }
+
+    private fun diagnostics(
+        generationId: Long,
+        videoPackets: Long,
+        audioPackets: Long,
+    ) = GoProMediaDiagnostics(
+        generationId = generationId,
+        videoConfigReady = true,
+        videoExtradataBytes = 45,
+        videoStreamIndex = 0,
+        videoTimeBaseNumerator = 1,
+        videoTimeBaseDenominator = 1_000,
+        videoWidth = 1280,
+        videoHeight = 720,
+        audioConfigReady = true,
+        audioExtradataBytes = 2,
+        audioStreamIndex = 1,
+        audioTimeBaseNumerator = 1,
+        audioTimeBaseDenominator = 44_100,
+        audioSampleRate = 44_100,
+        audioChannelCount = 2,
+        videoPacketCount = videoPackets,
+        audioPacketCount = audioPackets,
+        videoKeyframeCount = 18,
+        lastVideoPtsUs = if (videoPackets == 0L) null else 28_433_000L,
+        lastVideoDtsUs = if (videoPackets == 0L) null else 28_400_000L,
+        lastAudioPtsUs = if (audioPackets == 0L) null else 28_412_000L,
+        lastAudioDtsUs = null,
+        lastVideoPacketBytes = if (videoPackets == 0L) 0 else 18_322,
+        lastAudioPacketBytes = if (audioPackets == 0L) 0 else 371,
+    )
 }

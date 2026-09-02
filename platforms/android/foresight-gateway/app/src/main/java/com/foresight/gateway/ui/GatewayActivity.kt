@@ -39,6 +39,7 @@ import com.foresight.gateway.control.EventControlClient
 import com.foresight.gateway.control.EventControlState
 import com.foresight.gateway.control.EventControlUiState
 import com.foresight.gateway.gopro.GoProIngressSnapshot
+import com.foresight.gateway.gopro.GoProPreviewState
 import com.foresight.gateway.gopro.GoProSourceStatus
 import com.foresight.gateway.mode.GatewayOperatingMode
 import com.foresight.gateway.mode.GatewayOperatingModePolicy
@@ -66,6 +67,8 @@ class GatewayActivity : Activity() {
     private lateinit var goProStatusText: TextView
     private lateinit var startGoProButton: Button
     private lateinit var stopGoProButton: Button
+    private lateinit var startGoProRecordingButton: Button
+    private lateinit var stopGoProRecordingButton: Button
     private lateinit var labModeButton: Button
     private lateinit var fieldModeButton: Button
     private lateinit var previewSurface: SurfaceView
@@ -83,6 +86,7 @@ class GatewayActivity : Activity() {
     private var captureEndpointState = GatewayCaptureEndpointState()
     private var captureBinder: CaptureForegroundService.CaptureBinder? = null
     private var previewSurfaceReady = false
+    private var previewOwner = PreviewOwner.NONE
     private var stoppedPreviewCleared = false
     private var isServiceBound = false
     private var eventStatusRequestInFlight = false
@@ -108,6 +112,7 @@ class GatewayActivity : Activity() {
         override fun onServiceDisconnected(name: ComponentName?) {
             captureBinder = null
             isServiceBound = false
+            previewOwner = PreviewOwner.NONE
         }
     }
 
@@ -188,7 +193,7 @@ class GatewayActivity : Activity() {
     }
 
     override fun onStop() {
-        captureBinder?.detachPreview(previewSurface)
+        detachPreviewOwner()
         captureBinder = null
         if (isServiceBound) {
             unbindService(captureServiceConnection)
@@ -219,7 +224,7 @@ class GatewayActivity : Activity() {
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     previewSurfaceReady = false
                     Log.i(TAG, "Preview surface destroyed; detaching activity preview request.")
-                    captureBinder?.detachPreview(surfaceView)
+                    detachPreviewOwner()
                 }
             })
             previewSurface = surfaceView
@@ -317,6 +322,18 @@ class GatewayActivity : Activity() {
         goProRow.addView(startGoProButton, LinearLayout.LayoutParams(0, dp(52), 1f))
         goProRow.addView(stopGoProButton, LinearLayout.LayoutParams(0, dp(52), 1f))
         controls.addView(goProRow)
+        val goProRecordingRow = LinearLayout(this@GatewayActivity).apply { orientation = LinearLayout.HORIZONTAL }
+        startGoProRecordingButton = Button(this@GatewayActivity).apply {
+            text = "START GOPRO RECORDING"
+            setOnClickListener { startGoProRecording() }
+        }
+        stopGoProRecordingButton = Button(this@GatewayActivity).apply {
+            text = "STOP GOPRO RECORDING"
+            setOnClickListener { stopGoProRecording() }
+        }
+        goProRecordingRow.addView(startGoProRecordingButton, LinearLayout.LayoutParams(0, dp(52), 1f))
+        goProRecordingRow.addView(stopGoProRecordingButton, LinearLayout.LayoutParams(0, dp(52), 1f))
+        controls.addView(goProRecordingRow)
 
         controls.addView(panelLabel("OPERATING MODE"))
         val modeRow = LinearLayout(this@GatewayActivity).apply {
@@ -421,7 +438,44 @@ class GatewayActivity : Activity() {
                 "valid=${previewSurface.holder.surface.isValid}, visible=${previewSurface.visibility == View.VISIBLE}, " +
                 "alpha=${previewSurface.alpha}, dimensions=${previewSurface.width}x${previewSurface.height}.",
         )
-        if (previewSurfaceReady) captureBinder?.attachPreview(previewSurface)
+        if (!previewSurfaceReady || captureBinder == null) return
+        val phoneCaptureActive = isLocalCaptureActive(CaptureForegroundService.currentStatus.lifecycle)
+        val goProActive = (captureBinder?.goProIngressSnapshot() ?: CaptureForegroundService.currentGoProStatus)
+            .status != GoProSourceStatus.STOPPED
+        if (goProActive && !phoneCaptureActive) {
+            attachGoProPreview()
+        } else {
+            attachPhonePreview()
+        }
+    }
+
+    private fun attachPhonePreview() {
+        if (previewOwner == PreviewOwner.PHONE) return
+        if (previewOwner == PreviewOwner.GOPRO) {
+            captureBinder?.detachGoProPreviewSurface(previewSurface.holder.surface)
+            Log.i(TAG, "Preview ownership changed GOPRO -> PHONE; RTMP ingress remains active.")
+        }
+        captureBinder?.attachPreview(previewSurface)
+        previewOwner = PreviewOwner.PHONE
+    }
+
+    private fun attachGoProPreview() {
+        if (previewOwner == PreviewOwner.GOPRO) return
+        if (previewOwner == PreviewOwner.PHONE) {
+            captureBinder?.detachPreview(previewSurface)
+            Log.i(TAG, "Preview ownership changed PHONE -> GOPRO while phone capture is inactive.")
+        }
+        captureBinder?.attachGoProPreviewSurface(previewSurface.holder.surface)
+        previewOwner = PreviewOwner.GOPRO
+    }
+
+    private fun detachPreviewOwner() {
+        when (previewOwner) {
+            PreviewOwner.PHONE -> captureBinder?.detachPreview(previewSurface)
+            PreviewOwner.GOPRO -> captureBinder?.detachGoProPreviewSurface(previewSurface.holder.surface)
+            PreviewOwner.NONE -> Unit
+        }
+        previewOwner = PreviewOwner.NONE
     }
 
     private fun startCapture() {
@@ -504,7 +558,8 @@ class GatewayActivity : Activity() {
         logSyncUiDecision(syncPresentation)
         captureBinder?.updateEventState(presentation.event.state)
         renderGoProIngress(captureBinder?.goProIngressSnapshot() ?: CaptureForegroundService.currentGoProStatus)
-        clearStoppedPreviewIfNeeded(status.lifecycle)
+        attachPreviewIfReady()
+        clearStoppedPreviewIfNeeded(status.lifecycle, captureBinder?.goProIngressSnapshot() ?: CaptureForegroundService.currentGoProStatus)
     }
 
     private fun startGoProIngress() {
@@ -523,6 +578,18 @@ class GatewayActivity : Activity() {
         renderStatus()
     }
 
+    private fun startGoProRecording() {
+        runCatching { captureBinder?.startGoProRecording() ?: error("Gateway service is not connected.") }
+            .onFailure { error -> statusText.text = "GoPro recording unavailable: ${error.message}" }
+        renderStatus()
+    }
+
+    private fun stopGoProRecording() {
+        runCatching { captureBinder?.stopGoProRecording() ?: error("Gateway service is not connected.") }
+            .onFailure { error -> statusText.text = "GoPro recording stop failed: ${error.message}" }
+        renderStatus()
+    }
+
     private fun renderGoProIngress(snapshot: GoProIngressSnapshot) {
         goProDestinationText.text = "Destination: ${snapshot.destination ?: "Start to discover Wi-Fi IPv4"}"
         goProStatusText.text = buildString {
@@ -532,15 +599,78 @@ class GatewayActivity : Activity() {
                 append("\nVideo: ${it.videoSummary()}")
                 append("\nAudio: ${it.audioSummary()}")
             }
+            snapshot.mediaDiagnostics?.let { diagnostics ->
+                append("\nGeneration: ${diagnostics.generationId}")
+                append("\nVideo config: ${formatConfig(diagnostics.videoConfigReady, diagnostics.videoExtradataBytes)}")
+                append("\nVideo packets: ${diagnostics.videoPacketCount}")
+                append("\nVideo keyframes: ${diagnostics.videoKeyframeCount}")
+                append("\nLast video PTS: ${formatTimestamp(diagnostics.lastVideoPtsUs)}")
+                append("\nLast video packet: ${diagnostics.lastVideoPacketBytes} bytes")
+                append("\nAudio config: ${formatConfig(diagnostics.audioConfigReady, diagnostics.audioExtradataBytes)}")
+                append("\nAudio packets: ${diagnostics.audioPacketCount}")
+                append("\nLast audio PTS: ${formatTimestamp(diagnostics.lastAudioPtsUs)}")
+                append("\nLast audio packet: ${diagnostics.lastAudioPacketBytes} bytes")
+            }
+            snapshot.encodedTransportDiagnostics?.let { transport ->
+                append("\nEncoded transport:")
+                append("\nQueue: ${transport.queueDepth} / ${transport.queueCapacity}")
+                append("\nPeak: ${transport.peakQueueDepth}")
+                append("\nVideo representation: ${transport.videoRepresentation}")
+                append("\nAudio representation: ${transport.audioRepresentation}")
+                append("\nVideo samples/bytes: ${transport.videoSamplesReceived} / ${transport.videoBytesReceived}")
+                append("\nAudio samples/bytes: ${transport.audioSamplesReceived} / ${transport.audioBytesReceived}")
+                append("\nDropped samples: ${transport.samplesDropped}")
+            }
+            snapshot.previewDiagnostics?.let { preview ->
+                append("\nGoPro preview: ${preview.state}")
+                preview.decoderName?.let { append("\nDecoder: $it") }
+                append("\nPreview generation: ${preview.generationId ?: "Unavailable"}")
+                append("\nPreview frames queued/rendered/dropped: ${preview.framesQueued} / ${preview.framesRendered} / ${preview.framesDropped}")
+                append("\nPreview queue: ${preview.queueDepth} / ${preview.queueCapacity}")
+                preview.detail?.let { append("\nPreview detail: $it") }
+            }
+            snapshot.recordingDiagnostics?.let { recording ->
+                append("\nGoPro recording: ${recording.state}")
+                append("\nRecording generation: ${recording.generationId ?: "Unavailable"}")
+                append("\nRecording duration: ${recording.durationUs / 1_000_000.0}s")
+                append("\nRecording video/audio samples: ${recording.videoSamplesWritten} / ${recording.audioSamplesWritten}")
+                append("\nRecording queue: ${recording.queueDepth} / ${recording.queueCapacity}; peak ${recording.peakQueueDepth}")
+                recording.outputFileName?.let { append("\nRecording output: $it (${recording.fileSizeBytes} bytes)") }
+                recording.detail?.let { append("\nRecording detail: $it") }
+            }
         }
         startGoProButton.isEnabled = snapshot.status == GoProSourceStatus.STOPPED
         stopGoProButton.isEnabled = snapshot.status != GoProSourceStatus.STOPPED
+        val recordingActive = snapshot.recordingDiagnostics?.state in setOf(
+            com.foresight.gateway.gopro.GoProRecordingState.ARMING,
+            com.foresight.gateway.gopro.GoProRecordingState.WAITING_FOR_KEYFRAME,
+            com.foresight.gateway.gopro.GoProRecordingState.RECORDING,
+            com.foresight.gateway.gopro.GoProRecordingState.FINALIZING,
+        )
+        startGoProRecordingButton.isEnabled = snapshot.status == GoProSourceStatus.LIVE && !recordingActive
+        stopGoProRecordingButton.isEnabled = recordingActive
     }
 
-    private fun clearStoppedPreviewIfNeeded(lifecycle: com.foresight.gateway.transport.StreamLifecycle) {
+    private fun formatConfig(ready: Boolean, extradataBytes: Int): String =
+        "${if (ready) "READY" else "NOT READY"} ($extradataBytes bytes)"
+
+    private fun formatTimestamp(timestampUs: Long?): String = timestampUs?.let { "$it us" } ?: "Unavailable"
+
+    private fun clearStoppedPreviewIfNeeded(
+        lifecycle: com.foresight.gateway.transport.StreamLifecycle,
+        goPro: GoProIngressSnapshot,
+    ) {
         val stopped = lifecycle == com.foresight.gateway.transport.StreamLifecycle.IDLE ||
             lifecycle == com.foresight.gateway.transport.StreamLifecycle.ERROR
-        if (!stopped) {
+        val goProPreviewActive = previewOwner == PreviewOwner.GOPRO &&
+            goPro.previewDiagnostics?.state in setOf(
+                GoProPreviewState.WAITING_FOR_STREAM,
+                GoProPreviewState.WAITING_FOR_CONFIG,
+                GoProPreviewState.WAITING_FOR_KEYFRAME,
+                GoProPreviewState.CONFIGURING,
+                GoProPreviewState.DECODING,
+            )
+        if (!stopped || goProPreviewActive) {
             stoppedPreviewCleared = false
             stoppedPreviewOverlay.visibility = View.GONE
             return
@@ -561,6 +691,12 @@ class GatewayActivity : Activity() {
                 "visible=${previewSurface.visibility == View.VISIBLE}, alpha=${previewSurface.alpha}, " +
                 "dimensions=${previewSurface.width}x${previewSurface.height}.",
         )
+    }
+
+    private enum class PreviewOwner {
+        NONE,
+        PHONE,
+        GOPRO,
     }
 
     private fun refreshEventStatus() {

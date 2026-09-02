@@ -12,10 +12,12 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import android.view.SurfaceView
+import android.view.Surface
 import com.foresight.gateway.R
 import com.foresight.gateway.gopro.GoProIngressSnapshot
 import com.foresight.gateway.gopro.GoProLanAddressProvider
 import com.foresight.gateway.gopro.GoProRtmpIngress
+import com.foresight.gateway.gopro.GoProRecordingDiagnostics
 import com.foresight.gateway.gopro.GoProSourceStatus
 import com.foresight.gateway.metadata.CaptureSessionMetadata
 import com.foresight.gateway.mode.GatewayOperatingMode
@@ -37,6 +39,7 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener, GoP
         goProIngress = GoProRtmpIngress(
             listener = this,
             addressProvider = { GoProLanAddressProvider.discover(this) },
+            recordingDirectory = java.io.File(filesDir, "gopro_ingest_recordings"),
         )
     }
 
@@ -99,6 +102,14 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener, GoP
             controller.detachPreview(surfaceView)
         }
 
+        fun attachGoProPreviewSurface(surface: Surface) {
+            goProIngress.attachPreviewSurface(surface)
+        }
+
+        fun detachGoProPreviewSurface(surface: Surface? = null) {
+            goProIngress.detachPreviewSurface(surface)
+        }
+
         fun updateEventState(state: String) {
             authoritativeEventState = state
         }
@@ -159,6 +170,10 @@ class CaptureForegroundService : Service(), PhoneCaptureController.Listener, GoP
         fun stopGoProIngress(): GoProIngressSnapshot = goProIngress.stop()
 
         fun goProIngressSnapshot(): GoProIngressSnapshot = goProIngress.snapshot()
+
+        fun startGoProRecording(): GoProRecordingDiagnostics = goProIngress.startRecording()
+
+        fun stopGoProRecording(): GoProRecordingDiagnostics = goProIngress.stopRecording()
     }
 
     override fun onCaptureStateChanged(
