@@ -26,6 +26,87 @@ class LocalRecordingMetadataRepositoryTest {
     }
 
     @Test
+    fun `gopro source timing and private location survive ledger reload`() {
+        val root = temporaryRoot()
+        val repository = LocalRecordingMetadataRepository(
+            metadataDirectory = File(root, "recording_metadata"),
+            recordingsDirectory = File(root, "recordings"),
+            mediaDirectories = mapOf(
+                LocalMediaSourceId.PHONE_CAMERA to File(root, "recordings"),
+                LocalMediaSourceId.GOPRO_RTMP to File(root, "gopro_ingest_recordings"),
+            ),
+        )
+        val context = LocalRecordingContext(
+            recordingId = "gopro-recording-1",
+            sourceSessionId = "gopro-generation-42",
+            captureGeneration = 0,
+            localMediaFileName = "gopro-gopro-recording-1.mp4",
+            startedUtc = Instant.parse("2026-09-02T12:00:00Z"),
+            startedMonotonicMillis = 1_000L,
+            isRecording = true,
+            mediaSource = LocalMediaSourceId.GOPRO_RTMP,
+            mediaLocation = LocalMediaLocation.goProRtmp("gopro-gopro-recording-1.mp4"),
+            sourceGenerationId = "42",
+            recordingArmMonotonicNanos = 1_000_000_000L,
+            timelineAnchor = MediaTimelineAnchor(1_500_000_000L, 77_000L, 0L),
+            streamPath = "gopro",
+            videoFps = 0,
+            audioSampleRate = 48_000,
+            reportedAudioSampleRate = 44_100,
+        )
+        repository.createRecording(context)
+        val media = File(File(root, "gopro_ingest_recordings"), context.localMediaFileName)
+        requireNotNull(media.parentFile).mkdirs()
+        media.writeText("finalized gopro media")
+        repository.finalizeRecording(context.copy(isRecording = false), Instant.parse("2026-09-02T12:00:10Z"))
+
+        val reloaded = LocalRecordingMetadataRepository(
+            File(root, "recording_metadata"), File(root, "recordings"),
+            mapOf(
+                LocalMediaSourceId.PHONE_CAMERA to File(root, "recordings"),
+                LocalMediaSourceId.GOPRO_RTMP to File(root, "gopro_ingest_recordings"),
+            ),
+        ).snapshot().recordings.getValue(context.recordingId)
+        assertTrue(reloaded.finalized)
+        assertEquals(LocalMediaSourceId.GOPRO_RTMP, reloaded.mediaSource)
+        assertEquals("gopro_ingest_recordings", reloaded.mediaLocation.directoryName)
+        assertEquals(1_000_000_000L, reloaded.armMonotonicNanos)
+        assertEquals(77_000L, reloaded.firstMuxedKeyframeAnchor?.sourcePtsUs)
+        assertEquals(44_100, reloaded.reportedAudioSampleRate)
+    }
+
+    @Test
+    fun `interrupted gopro segment keeps finalized evidence but remains unavailable`() {
+        val root = temporaryRoot()
+        val repository = LocalRecordingMetadataRepository(
+            File(root, "recording_metadata"), File(root, "recordings"),
+            mapOf(
+                LocalMediaSourceId.PHONE_CAMERA to File(root, "recordings"),
+                LocalMediaSourceId.GOPRO_RTMP to File(root, "gopro_ingest_recordings"),
+            ),
+        )
+        val context = LocalRecordingContext(
+            "gopro-interrupted", "gopro-generation-43", 0, "gopro-gopro-interrupted.mp4",
+            Instant.parse("2026-09-02T12:00:00Z"), 1_000L, true,
+            mediaSource = LocalMediaSourceId.GOPRO_RTMP,
+            mediaLocation = LocalMediaLocation.goProRtmp("gopro-gopro-interrupted.mp4"),
+            terminationReason = "publisher_boundary",
+        )
+        repository.createRecording(context)
+        val media = File(File(root, "gopro_ingest_recordings"), context.localMediaFileName)
+        requireNotNull(media.parentFile).mkdirs()
+        media.writeText("closed interrupted segment")
+        repository.markRecordingInterrupted(context.recordingId, "publisher disconnected")
+        val finalized = repository.finalizeInterruptedRecording(context.copy(isRecording = false), Instant.parse("2026-09-02T12:00:05Z"))
+
+        assertTrue(finalized.finalized)
+        assertTrue(finalized.interrupted)
+        assertEquals(LocalMediaAvailability.INTERRUPTED, finalized.availability)
+        assertNotNull(finalized.sha256)
+        assertEquals("publisher_boundary", finalized.terminationReason)
+    }
+
+    @Test
     fun `authoritative start and end persist a ready duration across reload`() {
         val root = temporaryRoot()
         val repository = repository(root)

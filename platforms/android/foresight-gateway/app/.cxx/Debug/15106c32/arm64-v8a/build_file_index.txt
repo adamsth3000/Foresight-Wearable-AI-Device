@@ -1,0 +1,1 @@
+C:\Users\taylo\OneDrive\Documents\GitHub\adamsth3000\Foresight-Wearable-AI-Device\platforms\android\foresight-gateway\app\src\main\cpp\CMakeLists.txt

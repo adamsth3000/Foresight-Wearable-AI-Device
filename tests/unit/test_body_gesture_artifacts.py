@@ -18,6 +18,7 @@ from foresight_device.gestures.artifact import (
     GestureArtifactProvenanceError,
     load_gesture_artifact,
 )
+from foresight_device.gestures.models import HandState
 
 
 def body_payload() -> dict[str, object]:
@@ -158,3 +159,35 @@ def test_gesture_loader_rejects_event_mismatch_and_invalid_timestamp_order(tmp_p
 
     with pytest.raises(ArtifactValidationError, match="gesture candidate fields are invalid"):
         load_gesture_artifact(gesture_path, event_id="event-1")
+
+
+@pytest.mark.unit
+def test_semantic_gesture_evidence_is_backward_compatible_and_traceable(tmp_path: Path) -> None:
+    body_path = tmp_path / "event_body_perception.json"
+    write_json(body_path, body_payload())
+    gesture_path = tmp_path / "event_gestures.json"
+    payload = gesture_payload(body_path)
+    candidate = payload["gesture_events"][0]
+    assert isinstance(candidate, dict)
+    candidate["gesture_type"] = HandState.POINT.value
+    candidate["semantic_evidence"] = {
+        "support_observation_count": 3,
+        "duration_seconds": 0.4,
+        "consistency": 1.0,
+        "peak_observation_id": "hand-1",
+        "palm_scale": 0.2,
+        "thumb_index_distance_normalized": 0.8,
+        "extended_fingers": ["index"],
+        "flexed_fingers": ["middle", "ring", "pinky"],
+        "reasons": ["index_extended", "other_fingers_flexed"],
+    }
+    write_json(gesture_path, payload)
+
+    artifact = load_gesture_artifact(gesture_path, event_id="event-1", body_artifact_path=body_path)
+
+    assert artifact.gesture_events[0].semantic_evidence is not None
+    assert artifact.gesture_events[0].semantic_evidence.peak_observation_id == "hand-1"
+    candidate["semantic_evidence"]["peak_observation_id"] = "missing"
+    write_json(gesture_path, payload)
+    with pytest.raises(ArtifactValidationError, match="peak is outside"):
+        load_gesture_artifact(gesture_path, event_id="event-1", body_artifact_path=body_path)

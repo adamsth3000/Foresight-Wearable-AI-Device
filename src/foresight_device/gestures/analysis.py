@@ -7,6 +7,13 @@ from uuid import NAMESPACE_URL, uuid5
 
 from foresight_device.body_perception.models import HandObservation, HandTrack
 
+from .hand_state import (
+    DEFAULT_HAND_STATE_CONFIG,
+    DEFAULT_TEMPORAL_GESTURE_CONFIG,
+    HandStateConfig,
+    TemporalGestureConfig,
+    detect_semantic_events,
+)
 from .models import GestureEventCandidate
 
 NAMESPACE = uuid5(NAMESPACE_URL, "foresight-gesture-events")
@@ -63,6 +70,31 @@ def detect_motion_events(
             )
         )
     return tuple(events)
+
+
+def detect_gesture_events(
+    observations: tuple[HandObservation, ...],
+    tracks: tuple[HandTrack, ...],
+    *,
+    hand_config: HandStateConfig = DEFAULT_HAND_STATE_CONFIG,
+    temporal_config: TemporalGestureConfig = DEFAULT_TEMPORAL_GESTURE_CONFIG,
+) -> tuple[GestureEventCandidate, ...]:
+    """Combine legacy targetless motion with additive, stable semantic primitives."""
+
+    return tuple(
+        sorted(
+            (
+                *detect_motion_events(observations, tracks),
+                *detect_semantic_events(
+                    observations,
+                    tracks,
+                    hand_config=hand_config,
+                    temporal_config=temporal_config,
+                ),
+            ),
+            key=lambda item: (item.start_timestamp_seconds, item.gesture_event_id),
+        )
+    )
 
 
 def wrist_distance(first: HandObservation, second: HandObservation) -> float:

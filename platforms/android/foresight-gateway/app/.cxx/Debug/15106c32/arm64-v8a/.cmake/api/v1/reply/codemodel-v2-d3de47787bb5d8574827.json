@@ -1,0 +1,60 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.6.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "foresight_gopro_ingress",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "foresight_gopro_ingress::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-foresight_gopro_ingress-Debug-8cc14ed64795f2815368.json",
+					"name" : "foresight_gopro_ingress",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/.cxx/Debug/15106c32/arm64-v8a",
+		"source" : "C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/src/main/cpp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

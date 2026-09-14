@@ -1,0 +1,7 @@
+[
+{
+  "directory": "C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/.cxx/Debug/15106c32/arm64-v8a",
+  "command": "C:\\Users\\taylo\\AppData\\Local\\Android\\Sdk\\ndk\\27.3.13750724\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=aarch64-none-linux-android26 --sysroot=C:/Users/taylo/AppData/Local/Android/Sdk/ndk/27.3.13750724/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dforesight_gopro_ingress_EXPORTS -IC:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/src/main/cpp/third_party/ffmpeg/arm64-v8a/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC -std=gnu++20 -o CMakeFiles\\foresight_gopro_ingress.dir\\gopro_rtmp_ingress.cpp.o -c C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\platforms\\android\\foresight-gateway\\app\\src\\main\\cpp\\gopro_rtmp_ingress.cpp",
+  "file": "C:\\Users\\taylo\\OneDrive\\Documents\\GitHub\\adamsth3000\\Foresight-Wearable-AI-Device\\platforms\\android\\foresight-gateway\\app\\src\\main\\cpp\\gopro_rtmp_ingress.cpp"
+}
+]

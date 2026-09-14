@@ -14,7 +14,7 @@ from foresight_device.body_perception.artifact import (
 )
 from foresight_device.body_perception.models import SelfAssociationStatus
 
-from .models import GestureEventCandidate
+from .models import GestureEventCandidate, SemanticGestureEvidence
 
 
 class GestureArtifactProvenanceError(RuntimeError):
@@ -79,6 +79,11 @@ def _validate_gesture_evidence(artifact: GestureArtifact, body: BodyArtifact) ->
             raise ArtifactValidationError("gesture candidate references an unknown hand track")
         if any(identifier not in observation_ids for identifier in candidate.observation_ids):
             raise ArtifactValidationError("gesture candidate references an unknown observation")
+        if (
+            candidate.semantic_evidence is not None
+            and candidate.semantic_evidence.peak_observation_id not in candidate.observation_ids
+        ):
+            raise ArtifactValidationError("semantic gesture peak is outside candidate evidence")
 
 
 def _gesture(value: dict[str, object], event_id: str) -> GestureEventCandidate:
@@ -111,6 +116,7 @@ def _gesture(value: dict[str, object], event_id: str) -> GestureEventCandidate:
             self_association_status=_status(value.get("self_association_status")),
             fingertip_x=_optional_number(fingertip[0], "fingertip x"),
             fingertip_y=_optional_number(fingertip[1], "fingertip y"),
+            semantic_evidence=_semantic_evidence(value.get("semantic_evidence")),
         )
     except ValueError as exc:
         raise ArtifactValidationError("gesture candidate fields are invalid") from exc
@@ -147,6 +153,12 @@ def _number(value: object, name: str) -> float:
     return float(value)
 
 
+def _integer(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ArtifactValidationError(f"{name} must be an integer")
+    return value
+
+
 def _optional_number(value: object, name: str) -> float | None:
     return None if value is None else _number(value, name)
 
@@ -156,3 +168,38 @@ def _status(value: object) -> SelfAssociationStatus:
         return SelfAssociationStatus(_string(value, "self_association_status"))
     except ValueError as exc:
         raise ArtifactValidationError("self_association_status is invalid") from exc
+
+
+def _semantic_evidence(value: object) -> SemanticGestureEvidence | None:
+    if value is None:
+        return None
+    evidence = _dict(value, "semantic_evidence")
+    try:
+        return SemanticGestureEvidence(
+            support_observation_count=_integer(
+                evidence.get("support_observation_count"), "semantic support observation count"
+            ),
+            duration_seconds=_number(evidence.get("duration_seconds"), "semantic duration"),
+            consistency=_number(evidence.get("consistency"), "semantic consistency"),
+            peak_observation_id=_string(
+                evidence.get("peak_observation_id"), "semantic peak observation ID"
+            ),
+            palm_scale=_number(evidence.get("palm_scale"), "semantic palm scale"),
+            thumb_index_distance_normalized=_optional_number(
+                evidence.get("thumb_index_distance_normalized"), "semantic pinch distance"
+            ),
+            extended_fingers=tuple(
+                _string(item, "semantic extended finger")
+                for item in _list(evidence.get("extended_fingers"), "semantic extended fingers")
+            ),
+            flexed_fingers=tuple(
+                _string(item, "semantic flexed finger")
+                for item in _list(evidence.get("flexed_fingers"), "semantic flexed fingers")
+            ),
+            reasons=tuple(
+                _string(item, "semantic reason")
+                for item in _list(evidence.get("reasons"), "semantic reasons")
+            ),
+        )
+    except ValueError as exc:
+        raise ArtifactValidationError("semantic gesture evidence fields are invalid") from exc

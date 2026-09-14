@@ -5,6 +5,7 @@ import com.foresight.gateway.capture.EventMediaExtractionState
 import com.foresight.gateway.capture.EventMediaSyncState
 import com.foresight.gateway.transport.StreamLifecycle
 import com.foresight.gateway.mode.GatewayOperatingMode
+import com.foresight.gateway.capture.FieldEventReadiness
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,12 +88,19 @@ class GatewayPresentationTest {
         val event = EventControlState("recording_bounded_event", "event-1")
 
         assertTrue(GatewayPresentation(GatewayOperatingMode.LAB, StreamLifecycle.RECONNECTING, event).endEventEnabled)
-        assertTrue(GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.DEGRADED, event).endEventEnabled)
+        assertTrue(
+            GatewayPresentation(
+                GatewayOperatingMode.FIELD,
+                StreamLifecycle.DEGRADED,
+                event,
+                FieldEventReadiness(true, true, true, "event already active"),
+            ).endEventEnabled,
+        )
     }
 
     @Test
     fun `field local capture remains controllable while RTSP is offline`() {
-        val state = GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.OFFLINE, EventControlState())
+        val state = GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.OFFLINE, EventControlState(), readyFieldRecording())
 
         assertFalse(state.startCaptureEnabled)
         assertTrue(state.endCaptureEnabled)
@@ -107,6 +115,7 @@ class GatewayPresentationTest {
             GatewayOperatingMode.FIELD,
             StreamLifecycle.OFFLINE,
             EventControlState("recording_bounded_event", "field-event"),
+            FieldEventReadiness(true, true, true, "event already active"),
         )
 
         assertTrue(state.endCaptureEnabled)
@@ -124,4 +133,40 @@ class GatewayPresentationTest {
         assertFalse(state.endCaptureEnabled)
         assertTrue(state.eventLabel == "FINALIZING")
     }
+
+    @Test
+    fun `field start remains disabled before a local recording exists`() {
+        val state = GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.CONNECTING, EventControlState())
+
+        assertFalse(state.startEventEnabled)
+    }
+
+    @Test
+    fun `field start is ready during RTSP connecting once local recording exists`() {
+        val state = GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.CONNECTING, EventControlState(), readyFieldRecording())
+
+        assertTrue(state.startEventEnabled)
+    }
+
+    @Test
+    fun `field start remains ready during RTSP degradation with a local recording`() {
+        val state = GatewayPresentation(GatewayOperatingMode.FIELD, StreamLifecycle.DEGRADED, EventControlState(), readyFieldRecording())
+
+        assertTrue(state.startEventEnabled)
+    }
+
+    @Test
+    fun `active field event prevents a second local start`() {
+        val state = GatewayPresentation(
+            GatewayOperatingMode.FIELD,
+            StreamLifecycle.DEGRADED,
+            EventControlState("recording_bounded_event", "field-event"),
+            FieldEventReadiness(true, true, true, "event already active"),
+        )
+
+        assertFalse(state.startEventEnabled)
+        assertTrue(state.endEventEnabled)
+    }
+
+    private fun readyFieldRecording() = FieldEventReadiness(true, true, false, "READY")
 }

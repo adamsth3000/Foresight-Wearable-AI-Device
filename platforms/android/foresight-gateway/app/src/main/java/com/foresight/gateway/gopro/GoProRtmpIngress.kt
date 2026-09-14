@@ -2,13 +2,14 @@ package com.foresight.gateway.gopro
 
 import android.util.Log
 import android.view.Surface
+import com.foresight.gateway.capture.LocalRecordingMetadataRepository
 import java.io.File
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /** Service-owned, single-publisher RTMP ingress lifecycle for the narrow GW1-A proof. */
-class GoProRtmpIngress(
+internal class GoProRtmpIngress(
     private val listener: Listener,
     private val addressProvider: () -> String?,
     private val executor: Executor = Executors.newSingleThreadExecutor { runnable ->
@@ -18,7 +19,8 @@ class GoProRtmpIngress(
         NativeRtmpIngress(callbacks)
     },
     recordingDirectory: File = File(System.getProperty("java.io.tmpdir"), "foresight-gopro-recordings"),
-) {
+    private val recordingMetadataRepository: LocalRecordingMetadataRepository? = null,
+) : GoProLocalRecordingControl {
     interface Listener {
         fun onGoProIngressChanged(snapshot: GoProIngressSnapshot)
     }
@@ -35,6 +37,7 @@ class GoProRtmpIngress(
     private var requested = false
     @Volatile
     private var snapshot = GoProIngressSnapshot()
+    private val persistedFinalizedRecordingIds = mutableSetOf<String>()
 
     @Synchronized
     fun start(port: Int = DEFAULT_PORT, path: String = DEFAULT_PATH): GoProIngressSnapshot {
@@ -87,12 +90,14 @@ class GoProRtmpIngress(
         previewController.detachPreviewSurface(surface)
     }
 
-    fun startRecording(): GoProRecordingDiagnostics {
+    override fun startRecording(): GoProRecordingDiagnostics {
         check(snapshot.status == GoProSourceStatus.LIVE) { "GoPro source must be LIVE before recording." }
         return recorder.start(encodedTransport.videoFormat(), encodedTransport.audioFormat())
     }
 
-    fun stopRecording(): GoProRecordingDiagnostics = recorder.stop()
+    override fun stopRecording(): GoProRecordingDiagnostics = recorder.stop()
+
+    override fun currentRecordingContext() = recorder.localRecordingContext()
 
     fun close() {
         stop()
@@ -155,7 +160,53 @@ class GoProRtmpIngress(
     }
 
     private fun onRecordingDiagnostics(diagnostics: GoProRecordingDiagnostics) {
+        persistRecordingMetadata(diagnostics)
         update(snapshot.copy(recordingDiagnostics = diagnostics))
+    }
+
+    private fun persistRecordingMetadata(diagnostics: GoProRecordingDiagnostics) {
+        val repository = recordingMetadataRepository ?: return
+        val context = recorder.localRecordingContext() ?: return
+        runCatching {
+            when (diagnostics.state) {
+                GoProRecordingState.ARMING,
+                GoProRecordingState.WAITING_FOR_KEYFRAME,
+                GoProRecordingState.RECORDING,
+                GoProRecordingState.FINALIZING -> {
+                    repository.createRecording(context)
+                    repository.updateRecordingSourceMetadata(context)
+                }
+                GoProRecordingState.SAVED -> {
+                    repository.createRecording(context.copy(isRecording = true))
+                    repository.updateRecordingSourceMetadata(context)
+                    if (persistedFinalizedRecordingIds.add(context.recordingId)) {
+                        repository.finalizeRecording(context, java.time.Instant.now())
+                    }
+                }
+                GoProRecordingState.INTERRUPTED -> {
+                    repository.createRecording(context.copy(isRecording = true))
+                    repository.updateRecordingSourceMetadata(context)
+                    repository.markRecordingInterrupted(
+                        context.recordingId,
+                        diagnostics.detail ?: diagnostics.terminationReason ?: "GoPro recording did not finalize",
+                    )
+                    if (diagnostics.sha256 != null && diagnostics.fileSizeBytes > 0L && persistedFinalizedRecordingIds.add(context.recordingId)) {
+                        repository.finalizeInterruptedRecording(context, java.time.Instant.now())
+                    }
+                }
+                GoProRecordingState.ERROR -> {
+                    repository.createRecording(context.copy(isRecording = true))
+                    repository.updateRecordingSourceMetadata(context)
+                    repository.markRecordingInterrupted(
+                        context.recordingId,
+                        diagnostics.detail ?: diagnostics.terminationReason ?: "GoPro recorder error",
+                    )
+                }
+                GoProRecordingState.STOPPED -> Unit
+            }
+        }.onFailure { error ->
+            runCatching { Log.w(TAG, "Unable to persist GoPro recording metadata: ${error.message}", error) }
+        }
     }
 
     private fun update(next: GoProIngressSnapshot) {

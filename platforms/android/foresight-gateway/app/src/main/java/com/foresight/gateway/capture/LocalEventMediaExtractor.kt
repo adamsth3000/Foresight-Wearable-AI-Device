@@ -69,7 +69,7 @@ internal class LocalEventMediaExtractor(
             require(partial.parentFile?.exists() == true || requireNotNull(partial.parentFile).mkdirs()) {
                 "unable to create private event-media directory"
             }
-            val source = File(File(applicationContext.filesDir, "recordings"), plan.recording.localMediaFileName)
+            val source = repository.recordingFile(plan.recording)
             require(source.isFile) { "finalized source recording file is missing" }
             val result = copySamples(source, partial, plan)
             require(partial.isFile && partial.length() > 0L) { "remux produced no event media" }

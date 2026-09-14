@@ -4,6 +4,12 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.os.SystemClock
+import com.foresight.gateway.capture.LocalMediaAvailability
+import com.foresight.gateway.capture.LocalMediaLocation
+import com.foresight.gateway.capture.LocalMediaSourceId
+import com.foresight.gateway.capture.LocalRecordingContext
+import com.foresight.gateway.capture.MediaTimelineAnchor
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileWriter
@@ -123,9 +129,10 @@ class GoProMp4Recorder(
     },
     private val diagnosticsListener: (GoProRecordingDiagnostics) -> Unit = {},
     private val capacity: Int = DEFAULT_CAPACITY,
+    private val monotonicNanos: () -> Long = SystemClock::elapsedRealtimeNanos,
 ) {
     private val lock = Any()
-    private val queue = ArrayDeque<GoProEncodedSample>()
+    private val queue = ArrayDeque<QueuedSample>()
     private var drainScheduled = false
     private var finalizationStarted = false
     private var accepting = false
@@ -146,6 +153,8 @@ class GoProMp4Recorder(
     private var diagnostics = GoProRecordingDiagnostics(queueCapacity = capacity)
 
     init { require(capacity > 0) { "capacity must be positive" } }
+
+    private data class QueuedSample(val sample: GoProEncodedSample, val receiptMonotonicNanos: Long)
 
     fun start(video: GoProH264Format?, audio: GoProAacFormat?): GoProRecordingDiagnostics {
         synchronized(lock) {
@@ -173,6 +182,7 @@ class GoProMp4Recorder(
                 metadataFileName = "gopro-$id.json",
                 queueCapacity = capacity,
                 detail = "Preparing zero-transcode MP4 recorder.",
+                armMonotonicNanos = monotonicNanos(),
             )
         }
         publish()
@@ -193,7 +203,7 @@ class GoProMp4Recorder(
                 )
                 true
             } else {
-                queue.addLast(sample)
+                queue.addLast(QueuedSample(sample, monotonicNanos()))
                 diagnostics = diagnostics.copy(
                     queueDepth = queue.size,
                     peakQueueDepth = maxOf(diagnostics.peakQueueDepth, queue.size),
@@ -237,6 +247,53 @@ class GoProMp4Recorder(
     }
 
     fun diagnostics(): GoProRecordingDiagnostics = synchronized(lock) { diagnostics }
+
+    /** Durable C1 source context. The first-keyframe anchor appears once MediaMuxer has media. */
+    fun localRecordingContext(): LocalRecordingContext? = synchronized(lock) {
+        val id = diagnostics.recordingId ?: return null
+        val fileName = diagnostics.outputFileName ?: return null
+        val generation = diagnostics.generationId ?: return null
+        val state = diagnostics.state
+        val availability = when (state) {
+            GoProRecordingState.ARMING, GoProRecordingState.WAITING_FOR_KEYFRAME, GoProRecordingState.RECORDING -> LocalMediaAvailability.AVAILABLE
+            GoProRecordingState.FINALIZING -> LocalMediaAvailability.FINALIZING
+            GoProRecordingState.INTERRUPTED -> LocalMediaAvailability.INTERRUPTED
+            GoProRecordingState.ERROR -> LocalMediaAvailability.ERROR
+            GoProRecordingState.SAVED -> LocalMediaAvailability.AVAILABLE
+            GoProRecordingState.STOPPED -> LocalMediaAvailability.UNAVAILABLE
+        }
+        val video = videoFormat
+        val audio = audioFormat
+        val asc = audio?.let { runCatching { AacAudioSpecificConfig.parse(it.extradata) }.getOrNull() }
+        LocalRecordingContext(
+            recordingId = id,
+            sourceSessionId = "gopro-generation-$generation",
+            captureGeneration = 0,
+            localMediaFileName = fileName,
+            startedUtc = startedAt ?: Instant.now(),
+            startedMonotonicMillis = (diagnostics.armMonotonicNanos ?: 0L) / 1_000_000L,
+            isRecording = state in setOf(GoProRecordingState.ARMING, GoProRecordingState.WAITING_FOR_KEYFRAME, GoProRecordingState.RECORDING, GoProRecordingState.FINALIZING),
+            mediaSource = LocalMediaSourceId.GOPRO_RTMP,
+            mediaLocation = LocalMediaLocation.goProRtmp(fileName),
+            sourceGenerationId = generation.toString(),
+            availability = availability,
+            recordingArmMonotonicNanos = diagnostics.armMonotonicNanos,
+            timelineAnchor = diagnostics.firstMuxedKeyframeMonotonicNanos?.let { receipt ->
+                MediaTimelineAnchor(receipt, requireNotNull(diagnostics.firstMuxedSourcePtsUs), 0L)
+            },
+            streamPath = "gopro",
+            width = video?.width ?: 0,
+            height = video?.height ?: 0,
+            videoCodec = video?.codecName ?: "h264",
+            configuredVideoBitrate = 0,
+            videoFps = 0,
+            audioCodec = audio?.codecName ?: "aac",
+            audioSampleRate = asc?.sampleRate ?: audio?.sampleRate ?: 0,
+            audioChannels = asc?.channelCount ?: audio?.channelCount ?: 0,
+            reportedAudioSampleRate = audio?.sampleRate,
+            terminationReason = diagnostics.terminationReason,
+        )
+    }
 
     fun close() {
         onPublisherBoundary("Recorder closed with service.")
@@ -285,7 +342,7 @@ class GoProMp4Recorder(
     private fun drain() {
         while (true) {
             var shouldFinalize = false
-            val sample = synchronized(lock) {
+            val queued = synchronized(lock) {
                 if (queue.isEmpty()) {
                     drainScheduled = false
                     diagnostics = diagnostics.copy(queueDepth = 0)
@@ -298,21 +355,30 @@ class GoProMp4Recorder(
                     queue.removeFirst().also { diagnostics = diagnostics.copy(queueDepth = queue.size) }
                 }
             }
-            if (sample == null) {
+            if (queued == null) {
                 if (shouldFinalize) finalizeMuxer()
                 return
             }
             if (diagnostics().state == GoProRecordingState.ERROR) continue
-            write(sample)
+            write(queued)
         }
     }
 
-    private fun write(sample: GoProEncodedSample) {
+    private fun write(queued: QueuedSample) {
+        val sample = queued.sample
         val samplePts = sample.presentationTimeUs ?: return fail("Source sample PTS is unavailable")
         if (sample.streamType == GoProStreamType.VIDEO && originUs == null) {
             if (!sample.keyFrame) return
             originUs = samplePts
-            synchronized(lock) { diagnostics = diagnostics.copy(state = GoProRecordingState.RECORDING, detail = "Recording from source keyframe.") }
+            synchronized(lock) {
+                diagnostics = diagnostics.copy(
+                    state = GoProRecordingState.RECORDING,
+                    detail = "Recording from source keyframe.",
+                    firstMuxedKeyframeMonotonicNanos = queued.receiptMonotonicNanos,
+                    firstMuxedSourcePtsUs = samplePts,
+                    normalizedMp4OriginPtsUs = samplePts,
+                )
+            }
             publish()
         }
         val origin = originUs ?: return // Audio and dependent video are intentionally discarded before origin.
@@ -429,7 +495,7 @@ class GoProMp4Recorder(
         val started = startedAt?.toString().orEmpty()
         FileWriter(metadata, false).use { writer ->
             writer.write(
-                """{"recording_id":"${snapshot.recordingId}","publisher_generation_id":${snapshot.generationId},"source":"GOPRO_RTMP","stream_path":"gopro","started_at":"$started","ended_at":"${Instant.now()}","termination_reason":"${snapshot.terminationReason}","file_name":"${output.name}","file_size_bytes":${snapshot.fileSizeBytes},"duration_us":${snapshot.durationUs},"sha256":"${snapshot.sha256}","video":{"codec":"${video?.codecName}","width":${video?.width},"height":${video?.height},"samples":${snapshot.videoSamplesWritten}},"audio":{"codec":"${audio?.codecName}","reported_sample_rate":${audio?.sampleRate},"reported_channels":${audio?.channelCount},"audio_specific_config_sample_rate":${audioConfig?.sampleRate},"audio_specific_config_channels":${audioConfig?.channelCount},"samples":${snapshot.audioSamplesWritten}},"recording_queue_peak":${snapshot.peakQueueDepth}}""",
+                """{"recording_id":"${snapshot.recordingId}","publisher_generation_id":${snapshot.generationId},"source":"GOPRO_RTMP","stream_path":"gopro","started_at":"$started","ended_at":"${Instant.now()}","termination_reason":"${snapshot.terminationReason}","file_name":"${output.name}","file_size_bytes":${snapshot.fileSizeBytes},"duration_us":${snapshot.durationUs},"sha256":"${snapshot.sha256}","timing":{"recording_arm_monotonic_nanos":${snapshot.armMonotonicNanos},"first_muxed_keyframe_monotonic_nanos":${snapshot.firstMuxedKeyframeMonotonicNanos},"first_muxed_source_pts_us":${snapshot.firstMuxedSourcePtsUs},"normalized_mp4_origin_pts_us":${snapshot.normalizedMp4OriginPtsUs},"normalized_mp4_origin_us":0},"video":{"codec":"${video?.codecName}","width":${video?.width},"height":${video?.height},"samples":${snapshot.videoSamplesWritten}},"audio":{"codec":"${audio?.codecName}","reported_sample_rate":${audio?.sampleRate},"reported_channels":${audio?.channelCount},"audio_specific_config_sample_rate":${audioConfig?.sampleRate},"audio_specific_config_channels":${audioConfig?.channelCount},"samples":${snapshot.audioSamplesWritten}},"recording_queue_peak":${snapshot.peakQueueDepth}}""",
             )
         }
     }

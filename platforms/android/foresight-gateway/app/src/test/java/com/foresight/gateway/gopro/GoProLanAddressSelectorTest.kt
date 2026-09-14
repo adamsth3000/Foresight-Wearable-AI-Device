@@ -39,6 +39,42 @@ class GoProLanAddressSelectorTest {
     }
 
     @Test
+    fun `normal lan prefers upstream wifi over downstream hotspot wifi`() {
+        val selected = select(
+            candidate("192.168.1.175", GoProNetworkTransport.WIFI, active = true, hasIpv4DefaultRoute = true),
+            candidate("10.211.106.167", GoProNetworkTransport.WIFI, active = false, hasIpv4DefaultRoute = false),
+            mode = GoProNetworkMode.NORMAL_LAN,
+        )
+
+        assertEquals("192.168.1.175", selected)
+    }
+
+    @Test
+    fun `phone hotspot prefers non-default-route wifi over upstream wifi`() {
+        val selected = select(
+            candidate("192.168.1.175", GoProNetworkTransport.WIFI, active = true, hasIpv4DefaultRoute = true),
+            candidate("10.211.106.167", GoProNetworkTransport.WIFI, active = false, hasIpv4DefaultRoute = false),
+            candidate("100.67.203.120", GoProNetworkTransport.CELLULAR, active = false, hasIpv4DefaultRoute = true),
+            mode = GoProNetworkMode.PHONE_HOTSPOT,
+        )
+
+        assertEquals("10.211.106.167", selected)
+    }
+
+    @Test
+    fun `phone hotspot never falls back to cellular vpn loopback or link local`() {
+        val selected = select(
+            candidate("100.67.203.120", GoProNetworkTransport.CELLULAR, active = true),
+            candidate("100.64.0.4", GoProNetworkTransport.VPN, active = true),
+            candidate("127.0.0.1", GoProNetworkTransport.WIFI, active = false, hasIpv4DefaultRoute = false),
+            candidate("169.254.2.3", GoProNetworkTransport.WIFI, active = false, hasIpv4DefaultRoute = false),
+            mode = GoProNetworkMode.PHONE_HOTSPOT,
+        )
+
+        assertNull(selected)
+    }
+
+    @Test
     fun `fallback is deterministic when wifi is unavailable`() {
         val selected = select(
             candidate("10.0.0.5", GoProNetworkTransport.CELLULAR, active = false),
@@ -59,9 +95,16 @@ class GoProLanAddressSelectorTest {
         )
     }
 
-    private fun select(vararg candidates: GoProLanAddressCandidate): String? =
-        GoProLanAddressSelector.select(candidates.asSequence())
+    private fun select(
+        vararg candidates: GoProLanAddressCandidate,
+        mode: GoProNetworkMode = GoProNetworkMode.NORMAL_LAN,
+    ): String? = GoProLanAddressSelector.select(candidates.asSequence(), mode)
 
-    private fun candidate(address: String, transport: GoProNetworkTransport, active: Boolean): GoProLanAddressCandidate =
-        GoProLanAddressCandidate(address, transport, active)
+    private fun candidate(
+        address: String,
+        transport: GoProNetworkTransport,
+        active: Boolean,
+        hasIpv4DefaultRoute: Boolean = false,
+    ): GoProLanAddressCandidate =
+        GoProLanAddressCandidate(address, transport, active, hasIpv4DefaultRoute = hasIpv4DefaultRoute)
 }

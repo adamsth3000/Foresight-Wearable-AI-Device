@@ -12,6 +12,8 @@ import pytest
 from foresight_device.capture.phone_media import (
     PhoneMediaIngestError,
     PhoneMediaIngestService,
+    PhoneMediaUsbRecoveryMetadata,
+    PhoneMediaUsbRecoveryService,
     resolve_authoritative_event_media,
 )
 
@@ -152,6 +154,69 @@ def test_authoritative_resolver_falls_back_for_legacy_or_invalid_phone_provenanc
     assert resolve_authoritative_event_media(events_root, event_id) == event_dir / "event.mp4"
 
 
+def test_usb_recovery_creates_phone_field_manifest_and_resolves_authoritative_media(
+    tmp_path: Path,
+) -> None:
+    event_id, events_root, media_path, metadata = _usb_recovery_input(tmp_path)
+
+    result = _usb_recovery_service(events_root).import_usb(event_id, media_path, metadata)
+
+    manifest = json.loads((events_root / event_id / "manifest.json").read_text())
+    assert result.idempotent is False
+    assert result.path == media_path
+    assert manifest["event_origin"] == "phone_field"
+    assert manifest["event_authority"] == "phone_local"
+    assert manifest["transfer"]["method"] == "usb_recovery"
+    assert manifest["phone_local"]["validated"] is True
+    assert manifest["phone_local"]["recording_id"] == "recording-usb-1"
+    assert manifest["phone_local"]["extraction"]["actual_start_offset_ms"] == 1_000
+    assert manifest["authoritative_media"] == {
+        "source": "phone_local",
+        "path": "phone_media/authoritative.mp4",
+        "sha256": metadata.output_sha256,
+    }
+    assert "network_capture" not in manifest
+    assert "media" not in manifest
+    assert resolve_authoritative_event_media(events_root, event_id) == media_path
+
+
+def test_usb_recovery_rejects_missing_or_sha_mismatched_media(tmp_path: Path) -> None:
+    event_id, events_root, media_path, metadata = _usb_recovery_input(tmp_path)
+    media_path.unlink()
+    service = _usb_recovery_service(events_root)
+    with pytest.raises(PhoneMediaIngestError, match="does not exist"):
+        service.import_usb(event_id, media_path, metadata)
+
+    media_path.write_bytes(b"different-media")
+    with pytest.raises(PhoneMediaIngestError, match="byte size|SHA-256"):
+        service.import_usb(event_id, media_path, metadata)
+
+
+def test_usb_recovery_rejects_invalid_mp4_and_conflicting_manifest(tmp_path: Path) -> None:
+    event_id, events_root, media_path, metadata = _usb_recovery_input(tmp_path)
+    invalid_service = PhoneMediaUsbRecoveryService(events_root, probe_media=lambda _path: {})
+    with pytest.raises(PhoneMediaIngestError, match="ffprobe"):
+        invalid_service.import_usb(event_id, media_path, metadata)
+
+    (events_root / event_id / "manifest.json").write_text(
+        json.dumps({"event_id": event_id, "event_origin": "laptop_control"})
+    )
+    with pytest.raises(PhoneMediaIngestError, match="conflicts"):
+        _usb_recovery_service(events_root).import_usb(event_id, media_path, metadata)
+
+
+def test_usb_recovery_is_idempotent_only_for_matching_validated_provenance(tmp_path: Path) -> None:
+    event_id, events_root, media_path, metadata = _usb_recovery_input(tmp_path)
+    service = _usb_recovery_service(events_root)
+
+    first = service.import_usb(event_id, media_path, metadata)
+    repeated = service.import_usb(event_id, media_path, metadata)
+
+    assert first.idempotent is False
+    assert repeated.idempotent is True
+    assert repeated.sha256 == metadata.output_sha256
+
+
 def _event(root: Path) -> tuple[str, Path, Path]:
     event_id = str(uuid4())
     events_root = root / "events"
@@ -192,3 +257,36 @@ def _probe(_path: Path) -> dict[str, object]:
 
 def _service(events_root: Path) -> PhoneMediaIngestService:
     return PhoneMediaIngestService(events_root, probe_media=_probe)
+
+
+def _usb_recovery_input(
+    root: Path,
+) -> tuple[str, Path, Path, PhoneMediaUsbRecoveryMetadata]:
+    event_id = str(uuid4())
+    events_root = root / "events"
+    media_path = events_root / event_id / "phone_media" / "authoritative.mp4"
+    media_path.parent.mkdir(parents=True)
+    body = b"usb-recovered-phone-mp4"
+    media_path.write_bytes(body)
+    return (
+        event_id,
+        events_root,
+        media_path,
+        PhoneMediaUsbRecoveryMetadata(
+            recording_id="recording-usb-1",
+            source_recording_sha256="a" * 64,
+            output_byte_size=len(body),
+            output_sha256=hashlib.sha256(body).hexdigest(),
+            requested_start_offset_ms=500,
+            requested_end_offset_ms=2_500,
+            actual_start_offset_ms=1_000,
+            actual_end_offset_ms=2_450,
+            output_duration_ms=2_000,
+            audio_present=True,
+            source_session_id="phone-session-usb",
+        ),
+    )
+
+
+def _usb_recovery_service(events_root: Path) -> PhoneMediaUsbRecoveryService:
+    return PhoneMediaUsbRecoveryService(events_root, probe_media=_probe)

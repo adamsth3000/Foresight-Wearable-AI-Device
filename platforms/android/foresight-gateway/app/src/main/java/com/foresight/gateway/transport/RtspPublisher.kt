@@ -259,6 +259,9 @@ class RtspPublisher(
             startedUtc = Instant.now(),
             startedMonotonicMillis = SystemClock.elapsedRealtime(),
             isRecording = true,
+            mediaSource = com.foresight.gateway.capture.LocalMediaSourceId.PHONE_CAMERA,
+            mediaLocation = com.foresight.gateway.capture.LocalMediaLocation.phoneCamera(path.name),
+            availability = com.foresight.gateway.capture.LocalMediaAvailability.AVAILABLE,
         )
         try {
             stream.startRecord(path.absolutePath, listener = object : RecordController.Listener {

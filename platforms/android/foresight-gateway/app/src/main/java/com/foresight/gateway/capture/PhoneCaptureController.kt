@@ -1,8 +1,6 @@
 package com.foresight.gateway.capture
 
 import android.content.Context
-import android.os.Handler
-import android.os.HandlerThread
 import android.util.Log
 import android.view.SurfaceView
 import com.foresight.gateway.metadata.CaptureSessionMetadata
@@ -16,10 +14,21 @@ import java.io.File
 import java.util.UUID
 
 /** Coordinates a source-neutral phone capture session without owning Android UI. */
-class PhoneCaptureController(
+internal class PhoneCaptureController(
     context: Context,
     private val listener: Listener,
-) : RtspPublisher.Listener, TelemetryClient.Listener {
+    private val recordingRepository: LocalRecordingMetadataRepository = LocalRecordingMetadataRepository(
+        metadataDirectory = File(context.applicationContext.filesDir, "recording_metadata"),
+        recordingsDirectory = File(context.applicationContext.filesDir, "recordings"),
+        mediaDirectories = mapOf(
+            LocalMediaSourceId.PHONE_CAMERA to File(context.applicationContext.filesDir, "recordings"),
+            LocalMediaSourceId.GOPRO_RTMP to File(context.applicationContext.filesDir, "gopro_ingest_recordings"),
+        ),
+    ),
+    private val worker: CaptureWorker = HandlerCaptureWorker(),
+    private val publisherFactory: PhonePublisherRuntimeFactory = defaultPhonePublisherRuntimeFactory,
+    private val eventMediaExtractor: LocalEventMediaExtractor = LocalEventMediaExtractor(context.applicationContext, recordingRepository),
+) : PhoneFieldMediaController, RtspPublisher.Listener, TelemetryClient.Listener {
     interface Listener {
         fun onCaptureStateChanged(
             lifecycle: StreamLifecycle,
@@ -28,21 +37,16 @@ class PhoneCaptureController(
         )
     }
 
+    override val telemetryListener: TelemetryClient.Listener
+        get() = this
+
     private val applicationContext = context.applicationContext
     // All RootEncoder and recorder ownership mutations are serialized away from the UI looper.
-    private val captureWorkerThread = HandlerThread("ForesightCaptureWorker").apply { start() }
-    private val captureWorker = Handler(captureWorkerThread.looper)
-    private var telemetry = newTelemetryClient()
-    private var sensors = newSensorCapture(telemetry)
-    private val publisher = RtspPublisher(context, this, captureWorker)
-    private val recordingRepository = LocalRecordingMetadataRepository(
-        metadataDirectory = File(applicationContext.filesDir, "recording_metadata"),
-        recordingsDirectory = File(applicationContext.filesDir, "recordings"),
-        logger = LocalRecordingRepositoryLogger { message, error ->
-            if (error == null) Log.w(TAG, message) else Log.w(TAG, message, error)
-        },
-    )
-    private val eventMediaExtractor = LocalEventMediaExtractor(applicationContext, recordingRepository)
+    private val captureWorker = worker
+    private var telemetry: TelemetryClient? = null
+    private var sensors: PhoneSensorCapture? = null
+    private val publisher = publisherFactory(context, this, worker)
+    private val phoneMediaSource = PhoneLocalMediaSource(publisher)
     private val eventMediaSyncClient = EventMediaSyncClient(recordingRepository)
     private val state = CaptureControllerState()
     private val eventMapper = LocalRecordingEventMapper()
@@ -52,16 +56,23 @@ class PhoneCaptureController(
     private var transportLifecycle = StreamLifecycle.IDLE
     @Volatile
     private var cameraTimestampSource: String? = null
+    @Volatile
+    private var fieldEventReadiness = FieldEventReadiness.NOT_CAPTURING
 
     init {
         eventMediaExtractor.enqueueRecoverableEvents()
     }
 
-    fun start(endpoint: String?, telemetryEndpoint: String) {
-        captureWorker.post { startOnCaptureWorker(endpoint, telemetryEndpoint) }
+    override fun start(
+        endpoint: String?,
+        telemetryEndpoint: String,
+        fieldSupportExternallyOwned: Boolean,
+        sessionOverride: CaptureSessionMetadata?,
+    ) {
+        captureWorker.execute { startOnCaptureWorker(endpoint, telemetryEndpoint, fieldSupportExternallyOwned, sessionOverride) }
     }
 
-    private fun startOnCaptureWorker(endpoint: String?, telemetryEndpoint: String): Boolean {
+    private fun startOnCaptureWorker(endpoint: String?, telemetryEndpoint: String, fieldSupportExternallyOwned: Boolean, sessionOverride: CaptureSessionMetadata?): Boolean {
         require(endpoint.isNullOrBlank() || endpoint.startsWith("rtsp://")) { "The endpoint must use rtsp://" }
         val session: CaptureSessionMetadata
         synchronized(this) {
@@ -79,7 +90,7 @@ class PhoneCaptureController(
             }
             state.beginStartDispatch()
             // This is provisional until the publisher synchronously reports PREPARING.
-            session = CaptureSessionMetadata(streamEndpoint = endpoint.orEmpty())
+            session = sessionOverride ?: CaptureSessionMetadata(streamEndpoint = endpoint.orEmpty())
             activeSession = session
             Log.i(TAG, "Capture start dispatch accepted: generation=${publisher.generation()}.")
         }
@@ -96,11 +107,11 @@ class PhoneCaptureController(
                     "exception=${error.javaClass.simpleName}: ${error.message}",
                 error,
             )
-            rollbackStart("Publisher start threw ${error.javaClass.simpleName}.")
+            rollbackStart("Publisher start threw ${error.javaClass.simpleName}.", fieldSupportExternallyOwned)
             return false
         }
         if (!publisherAccepted) {
-            rollbackStart("Publisher rejected the capture start.")
+            rollbackStart("Publisher rejected the capture start.", fieldSupportExternallyOwned)
             return false
         }
 
@@ -108,32 +119,47 @@ class PhoneCaptureController(
         if (!publisherPrepared) {
             // RootEncoder currently reports PREPARING synchronously. Retain no ownership if a
             // future implementation accepts a start without publishing that lifecycle fact.
-            rollbackStart("Publisher accepted start without entering PREPARING.")
+            rollbackStart("Publisher accepted start without entering PREPARING.", fieldSupportExternallyOwned)
             return false
         }
 
-        // Telemetry owns a session-scoped executor that is intentionally shut down on stop.
-        // Recreate it after RTSP acceptance so an old executor cannot interrupt a later start.
-        telemetry = newTelemetryClient()
-        sensors = newSensorCapture(telemetry)
-        try {
-            Log.i(TAG, "Telemetry and sensor startup beginning after publisher acceptance.")
-            telemetry.start(session, telemetryEndpoint)
-            cameraTimestampSource?.let(::enqueueCameraTimingCapability)
-            sensors.start()
-        } catch (error: RuntimeException) {
-            // Sensor/telemetry startup must never wedge or invalidate an already accepted media
-            // publisher. Report the side-channel failure and keep RTSP capture authoritative.
-            Log.w(TAG, "Telemetry or sensor startup failed after publisher acceptance.", error)
-            listener.onCaptureStateChanged(transportLifecycle, activeSession, "Telemetry unavailable: ${error.message}")
-        }
+        if (!fieldSupportExternallyOwned) startFieldSupport(session, telemetryEndpoint)
         return true
     }
 
+    /** Starts phone sensors and telemetry for either FIELD media source. */
+    override fun startFieldSupport(session: CaptureSessionMetadata, telemetryEndpoint: String) {
+        captureWorker.execute {
+            activeSession = session
+            val telemetryClient = newTelemetryClient()
+            telemetry = telemetryClient
+            sensors = newSensorCapture(telemetryClient)
+            try {
+                Log.i(TAG, "FIELD telemetry and sensor startup beginning.")
+                telemetryClient.start(session, telemetryEndpoint)
+                cameraTimestampSource?.let(::enqueueCameraTimingCapability)
+                sensors?.start()
+            } catch (error: RuntimeException) {
+                Log.w(TAG, "FIELD telemetry or sensor startup failed.", error)
+                listener.onCaptureStateChanged(transportLifecycle, activeSession, "Telemetry unavailable: ${error.message}")
+            }
+        }
+    }
+
+    /** Stops side-channel capture without touching the selected media source. */
+    override fun stopFieldSupport() {
+        captureWorker.execute {
+            sensors?.stop()
+            telemetry?.stop()
+        }
+    }
+
     @Synchronized
-    private fun rollbackStart(detail: String) {
-        sensors.stop()
-        telemetry.stop()
+    private fun rollbackStart(detail: String, fieldSupportExternallyOwned: Boolean) {
+        if (!fieldSupportExternallyOwned) {
+            sensors?.stop()
+            telemetry?.stop()
+        }
         activeSession = null
         state.rollbackStartDispatch()
         transportLifecycle = StreamLifecycle.IDLE
@@ -148,34 +174,36 @@ class PhoneCaptureController(
             listener.onCaptureStateChanged(transportLifecycle, activeSession, detail)
         }
 
-    fun stop() {
-        captureWorker.post { stopOnCaptureWorker() }
+    override fun stop(fieldSupportExternallyOwned: Boolean) {
+        captureWorker.execute { stopOnCaptureWorker(fieldSupportExternallyOwned) }
     }
 
-    private fun stopOnCaptureWorker() {
+    private fun stopOnCaptureWorker(fieldSupportExternallyOwned: Boolean) {
         if (state.lifecycle == StreamLifecycle.IDLE && !state.hasActiveSession) {
             Log.i(TAG, "Capture stop ignored: controller is already IDLE.")
             return
         }
         Log.i(TAG, "Capture stop requested: controllerState=${state.lifecycle}, publisherGeneration=${publisher.generation()}.")
         completeActiveFieldEventForCaptureStop()
-        sensors.stop()
-        telemetry.stop()
+        if (!fieldSupportExternallyOwned) {
+            sensors?.stop()
+            telemetry?.stop()
+        }
         publisher.stop()
     }
 
-    fun attachPreview(surfaceView: SurfaceView) {
-        captureWorker.post { publisher.attachPreview(surfaceView) }
+    override fun attachPreview(surfaceView: SurfaceView) {
+        captureWorker.execute { publisher.attachPreview(surfaceView) }
     }
 
-    fun detachPreview(surfaceView: SurfaceView) {
-        captureWorker.post { publisher.detachPreview(surfaceView) }
+    override fun detachPreview(surfaceView: SurfaceView) {
+        captureWorker.execute { publisher.detachPreview(surfaceView) }
     }
 
-    fun authoritativeEventStarted(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
-        captureWorker.post {
+    override fun authoritativeEventStarted(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
+        captureWorker.execute {
             runCatching {
-                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val context = requireNotNull(phoneMediaSource.currentRecordingContext()) { "no active local recording" }
                 val boundary = eventMapper.start(eventId, context, receiptUtc, receiptMonotonicMillis)
                 recordingRepository.recordAuthoritativeStart(boundary)
                 Log.i(TAG, "Authoritative event START received: eventId=$eventId recordingId=${boundary.recordingId} sourceSessionId=${context.sourceSessionId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${boundary.recordingOffsetMillis}")
@@ -183,27 +211,29 @@ class PhoneCaptureController(
         }
     }
 
-    fun authoritativeEventEnded(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
-        captureWorker.post {
+    override fun authoritativeEventEnded(eventId: String, receiptUtc: Instant, receiptMonotonicMillis: Long) {
+        captureWorker.execute {
             runCatching {
-                val (start, end) = eventMapper.end(eventId, requireNotNull(publisher.localRecordingContext()) { "no active local recording" }, receiptUtc, receiptMonotonicMillis)
+                val (start, end) = eventMapper.end(eventId, requireNotNull(phoneMediaSource.currentRecordingContext()) { "no active local recording" }, receiptUtc, receiptMonotonicMillis)
                 recordingRepository.recordAuthoritativeEnd(start, end)
                 Log.i(TAG, "Authoritative event END received: eventId=$eventId recordingId=${end.recordingId} receiptUtc=$receiptUtc receiptMonotonicMs=$receiptMonotonicMillis recordingOffsetMs=${end.recordingOffsetMillis}")
             }.onFailure { Log.w(TAG, "Authoritative event END rejected: ${it.message}") }
         }
     }
 
-    internal fun startFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
-        captureWorker.post {
+    override fun startFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+        captureWorker.execute {
             val result = runCatching {
-                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val context = requireNotNull(phoneMediaSource.currentRecordingContext()) { "no active local recording" }
                 val boundary = eventMapper.boundary(
                     UUID.randomUUID().toString(),
                     context,
                     Instant.now(),
                     android.os.SystemClock.elapsedRealtime(),
                 )
-                recordingRepository.recordFieldStart(boundary)
+                val mapping = recordingRepository.recordFieldStart(boundary)
+                refreshFieldEventReadiness()
+                mapping
             }
             result.onSuccess { event ->
                 Log.i(TAG, "FIELD event START persisted: eventId=${event.eventId} recordingId=${event.recordingId} offsetMs=${event.startOffsetMillis}")
@@ -214,22 +244,24 @@ class PhoneCaptureController(
         }
     }
 
-    internal fun endFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
-        captureWorker.post {
+    override fun endFieldEvent(callback: (Result<LocalEventMapping>) -> Unit) {
+        captureWorker.execute {
             val result = runCatching {
                 val active = requireNotNull(recordingRepository.activeFieldEvent()) { "no active FIELD event" }
-                val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+                val context = requireNotNull(phoneMediaSource.currentRecordingContext()) { "no active local recording" }
                 val end = eventMapper.boundary(
                     active.eventId,
                     context,
                     Instant.now(),
                     android.os.SystemClock.elapsedRealtime(),
                 )
-                recordingRepository.completeFieldEvent(
+                val mapping = recordingRepository.completeFieldEvent(
                     active.eventId,
                     end,
                     LocalEventTerminationReason.USER_END,
                 )
+                refreshFieldEventReadiness()
+                mapping
             }
             result.onSuccess { event ->
                 Log.i(TAG, "FIELD event END persisted: eventId=${event.eventId} durationMs=${event.durationMillis}")
@@ -240,25 +272,45 @@ class PhoneCaptureController(
         }
     }
 
-    internal fun activeFieldEvent(callback: (LocalEventMapping?) -> Unit) {
-        captureWorker.post { callback(recordingRepository.activeFieldEvent()) }
+    override fun activeFieldEvent(callback: (LocalEventMapping?) -> Unit) {
+        captureWorker.execute { callback(recordingRepository.activeFieldEvent()) }
+    }
+
+    override fun fieldEventReadiness(): FieldEventReadiness = fieldEventReadiness
+
+    override fun localMediaAvailability(): LocalMediaAvailability = phoneMediaSource.availability()
+
+    private fun refreshFieldEventReadiness() {
+        val sessionActive = state.hasActiveSession
+        val context = phoneMediaSource.currentRecordingContext()
+        val recordingReady = sessionActive && context?.isRecording == true &&
+            recordingRepository.snapshot().recordings.containsKey(context.recordingId)
+        val active = recordingRepository.activeFieldEvent() != null
+        fieldEventReadiness = when {
+            !sessionActive -> FieldEventReadiness.NOT_CAPTURING
+            !recordingReady -> FieldEventReadiness(true, false, active, "waiting for local recording")
+            active -> FieldEventReadiness(true, true, true, "event already active")
+            else -> FieldEventReadiness(true, true, false, "READY")
+        }
     }
 
     private fun completeActiveFieldEventForCaptureStop() {
         val active = recordingRepository.activeFieldEvent() ?: return
         runCatching {
-            val context = requireNotNull(publisher.localRecordingContext()) { "no active local recording" }
+            val context = requireNotNull(phoneMediaSource.currentRecordingContext()) { "no active local recording" }
             val end = eventMapper.boundary(
                 active.eventId,
                 context,
                 Instant.now(),
                 android.os.SystemClock.elapsedRealtime(),
             )
-            recordingRepository.completeFieldEvent(
+            val mapping = recordingRepository.completeFieldEvent(
                 active.eventId,
                 end,
                 LocalEventTerminationReason.CAPTURE_STOP,
             )
+            refreshFieldEventReadiness()
+            mapping
         }.onSuccess { event ->
             Log.i(TAG, "FIELD event closed for capture stop: eventId=${event.eventId} durationMs=${event.durationMillis}")
         }.onFailure { error ->
@@ -266,7 +318,7 @@ class PhoneCaptureController(
         }
     }
 
-    fun syncReadyEventMedia(
+    override fun syncReadyEventMedia(
         eventId: String,
         controlEndpoint: String,
         callback: (EventMediaSyncUiState) -> Unit,
@@ -274,26 +326,26 @@ class PhoneCaptureController(
         eventMediaSyncClient.sync(eventId, controlEndpoint, callback)
     }
 
-    fun syncAllReadyEventMedia(
+    override fun syncAllReadyEventMedia(
         controlEndpoint: String,
         callback: (eventId: String, state: EventMediaSyncUiState, completed: Int, total: Int) -> Unit,
     ) {
         eventMediaSyncClient.syncAll(recordingRepository.syncableEventIds(), controlEndpoint, callback)
     }
 
-    fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
+    override fun eventMediaSyncState(eventId: String): EventMediaSyncState? =
         recordingRepository.eventMediaSyncState(eventId)
 
-    internal fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
+    override fun eventMediaExtractionState(eventId: String): EventMediaExtractionState? =
         recordingRepository.eventMediaExtractionState(eventId)
 
-    fun latestSyncableEventId(): String? = recordingRepository.latestSyncableEventId()
+    override fun latestSyncableEventId(): String? = recordingRepository.latestSyncableEventId()
 
-    internal fun syncHistory(): List<EventMediaSyncHistoryEntry> = recordingRepository.syncHistory()
+    override fun syncHistory(): List<EventMediaSyncHistoryEntry> = recordingRepository.syncHistory()
 
-    internal fun syncSummary(): EventMediaSyncSummary = recordingRepository.syncSummary()
+    override fun syncSummary(): EventMediaSyncSummary = recordingRepository.syncSummary()
 
-    internal fun syncableEventIds(): List<String> = recordingRepository.syncableEventIds()
+    override fun syncableEventIds(): List<String> = recordingRepository.syncableEventIds()
 
     override fun onLifecycleChanged(lifecycle: StreamLifecycle, detail: String?) {
         // Clear ownership before publishing IDLE so a UI-enabled second START cannot observe
@@ -306,6 +358,7 @@ class PhoneCaptureController(
         if (lifecycle == StreamLifecycle.IDLE || lifecycle == StreamLifecycle.ERROR) {
             activeSession = null
         }
+        refreshFieldEventReadiness()
         Log.i(
             TAG,
             "Publisher lifecycle accepted: lifecycle=$lifecycle, controllerState=${state.lifecycle}, " +
@@ -343,7 +396,7 @@ class PhoneCaptureController(
     }
 
     private fun enqueueCameraTimingCapability(timestampSource: String) {
-        telemetry.enqueue(JSONObject().apply {
+        telemetry?.enqueue(JSONObject().apply {
             put("record_type", "camera_timing_capability")
             put("timestamp_elapsed_realtime_nanos", android.os.SystemClock.elapsedRealtimeNanos())
             put("sensor_timestamp_source", timestampSource)
@@ -355,7 +408,7 @@ class PhoneCaptureController(
         // RootEncoder exposes Camera2 exposure timestamps, but not encoded RTP/PTS mapping.
         // Rate-limit timing observations so camera callbacks cannot pressure telemetry transport.
         if (frameNumber % 30L != 0L) return
-        telemetry.enqueue(JSONObject().apply {
+        telemetry?.enqueue(JSONObject().apply {
             put("record_type", "camera_frame_timing")
             put("timestamp_elapsed_realtime_nanos", timestampNanos)
             put("frame_number", frameNumber)
@@ -371,6 +424,7 @@ class PhoneCaptureController(
             .onFailure { error ->
                 Log.e(TAG, "Unable to persist local recording creation: ${context.recordingId}", error)
             }
+        refreshFieldEventReadiness()
     }
 
     override fun onLocalRecordingFinalized(context: LocalRecordingContext, stopUtc: Instant) {
@@ -394,6 +448,7 @@ class PhoneCaptureController(
                     Log.e(TAG, "Unable to persist local recording interruption: ${context.recordingId}", markError)
                 }
             }
+        refreshFieldEventReadiness()
     }
 
     override fun onLocalRecordingInterrupted(context: LocalRecordingContext, detail: String) {
@@ -404,9 +459,10 @@ class PhoneCaptureController(
             .onFailure { error ->
                 Log.e(TAG, "Unable to persist interrupted local recording: ${context.recordingId}", error)
             }
+        refreshFieldEventReadiness()
     }
 
-    fun startDiagnostics(): String =
+    override fun startDiagnostics(): String =
         "controllerState=${state.lifecycle}, hasActiveSession=${state.hasActiveSession}, " +
             "dispatchInFlight=${state.startDispatchInFlight}, " +
             "publisherGeneration=${publisher.generation()}, publisherState=${publisher.lifecycle()}"

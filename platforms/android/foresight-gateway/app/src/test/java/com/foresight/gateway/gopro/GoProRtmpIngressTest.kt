@@ -16,6 +16,7 @@ class GoProRtmpIngressTest {
         assertEquals(1, fixture.backend.runCount)
         assertEquals(GoProSourceStatus.LISTENING, fixture.snapshots.last().status)
         assertEquals("rtmp://192.168.1.175:1935/gopro", fixture.snapshots.last().destination)
+        assertEquals("0.0.0.0", fixture.backend.lastHost)
     }
 
     @Test
@@ -155,7 +156,17 @@ class GoProRtmpIngressTest {
         assertEquals(null, backend)
     }
 
-    private class Fixture {
+    @Test
+    fun `advertised target follows selected address while native host remains wildcard`() {
+        val fixture = Fixture(address = "10.211.106.167")
+
+        fixture.ingress.start()
+
+        assertEquals("rtmp://10.211.106.167:1935/gopro", fixture.snapshots.last().destination)
+        assertEquals("0.0.0.0", fixture.backend.lastHost)
+    }
+
+    private class Fixture(address: String = "192.168.1.175") {
         val snapshots = mutableListOf<GoProIngressSnapshot>()
         lateinit var backend: FakeBackend
         val ingress = GoProRtmpIngress(
@@ -164,7 +175,7 @@ class GoProRtmpIngressTest {
                     snapshots += snapshot
                 }
             },
-            addressProvider = { "192.168.1.175" },
+            addressProvider = { address },
             executor = Executor { it.run() },
             backendFactory = { callbacks ->
                 FakeBackend(callbacks).also { backend = it }
@@ -177,9 +188,11 @@ class GoProRtmpIngressTest {
     ) : GoProIngressBackend {
         var runCount = 0
         var stopCount = 0
+        var lastHost: String? = null
 
         override fun run(host: String, port: Int, path: String) {
             runCount += 1
+            lastHost = host
             callbacks.eventListener(NativeIngressEvent.LISTENING, "native listening", null)
         }
 

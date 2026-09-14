@@ -1,0 +1,12 @@
+{
+  "recording_id": "25543284-237e-4046-8f56-bba6b9bd17cb",
+  "source_recording_sha256": "b5e7680b31a9fd3251372fd7ca253da3335c1cdd6752f71242c3f8e60aede467",
+  "output_byte_size": 72833139,
+  "output_sha256": "f9d794d013d8de6207664a60c92fcd41be3aa763b35df5964fec1249b18e2a4d",
+  "requested_start_offset_ms": 6943,
+  "requested_end_offset_ms": 283259,
+  "actual_start_offset_ms": 6027,
+  "actual_end_offset_ms": 283252,
+  "output_duration_ms": 277225,
+  "audio_present": true
+}

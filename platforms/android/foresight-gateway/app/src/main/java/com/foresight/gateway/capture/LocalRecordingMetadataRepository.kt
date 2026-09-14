@@ -88,6 +88,15 @@ internal data class LocalRecordingMetadata(
     val audioCodec: String = "aac",
     val audioSampleRate: Int = 44_100,
     val audioChannels: Int = 2,
+    val mediaSource: LocalMediaSourceId = LocalMediaSourceId.PHONE_CAMERA,
+    val mediaLocation: LocalMediaLocation = LocalMediaLocation.phoneCamera(localMediaFileName),
+    val sourceGenerationId: String = captureGeneration.toString(),
+    val availability: LocalMediaAvailability = LocalMediaAvailability.AVAILABLE,
+    val armMonotonicNanos: Long? = null,
+    val firstMuxedKeyframeAnchor: MediaTimelineAnchor? = null,
+    val streamPath: String? = null,
+    val reportedAudioSampleRate: Int? = null,
+    val terminationReason: String? = null,
 )
 
 internal data class LocalEventMapping(
@@ -159,6 +168,7 @@ internal fun interface LocalRecordingRepositoryLogger {
 internal class LocalRecordingMetadataRepository(
     private val metadataDirectory: File,
     private val recordingsDirectory: File,
+    private val mediaDirectories: Map<LocalMediaSourceId, File> = mapOf(LocalMediaSourceId.PHONE_CAMERA to recordingsDirectory),
     private val logger: LocalRecordingRepositoryLogger = LocalRecordingRepositoryLogger { _, _ -> },
 ) {
     private var ledger = loadLedger()
@@ -189,6 +199,24 @@ internal class LocalRecordingMetadataRepository(
             recordingStartUtc = context.startedUtc,
             recordingStartMonotonicMillis = context.startedMonotonicMillis,
             localMediaFileName = context.localMediaFileName,
+            mediaSource = context.mediaSource,
+            mediaLocation = context.mediaLocation,
+            sourceGenerationId = context.sourceGenerationId,
+            availability = context.availability,
+            armMonotonicNanos = context.recordingArmMonotonicNanos,
+            firstMuxedKeyframeAnchor = context.timelineAnchor,
+            streamPath = context.streamPath,
+            container = context.container,
+            width = context.width,
+            height = context.height,
+            videoCodec = context.videoCodec,
+            configuredVideoBitrate = context.configuredVideoBitrate,
+            videoFps = context.videoFps,
+            audioCodec = context.audioCodec,
+            audioSampleRate = context.audioSampleRate,
+            audioChannels = context.audioChannels,
+            reportedAudioSampleRate = context.reportedAudioSampleRate,
+            terminationReason = context.terminationReason,
         )
         ledger = ledger.copy(recordings = ledger.recordings + (record.recordingId to record))
         persist(ledger)
@@ -288,7 +316,7 @@ internal class LocalRecordingMetadataRepository(
         val current = synchronized(this) {
             requireNotNull(ledger.recordings[context.recordingId]) { "unknown recording finalization" }
         }
-        val media = recordingFile(current.localMediaFileName)
+        val media = recordingFile(current)
         require(media.isFile) { "finalized local media file is missing" }
         val byteSize = media.length()
         val sha256 = sha256(media)
@@ -303,6 +331,35 @@ internal class LocalRecordingMetadataRepository(
                 failureDetail = null,
                 byteSize = byteSize,
                 sha256 = sha256,
+                availability = LocalMediaAvailability.AVAILABLE,
+            )
+            ledger = ledger.copy(recordings = ledger.recordings + (finalized.recordingId to finalized))
+            persist(ledger)
+            finalized
+        }
+    }
+
+    /** Retains proof for a closed-but-interrupted segment without making it eligible for extraction. */
+    fun finalizeInterruptedRecording(context: LocalRecordingContext, stopUtc: Instant): LocalRecordingMetadata {
+        val current = synchronized(this) {
+            requireNotNull(ledger.recordings[context.recordingId]) { "unknown interrupted recording finalization" }
+        }
+        if (current.finalized) return current
+        val media = recordingFile(current)
+        require(media.isFile) { "interrupted local media file is missing" }
+        val byteSize = media.length()
+        val sha256 = sha256(media)
+        return synchronized(this) {
+            val latest = requireNotNull(ledger.recordings[context.recordingId]) { "recording disappeared during finalization" }
+            if (latest.finalized) return@synchronized latest
+            val finalized = latest.copy(
+                recordingStopUtc = stopUtc,
+                finalized = true,
+                interrupted = true,
+                availability = LocalMediaAvailability.INTERRUPTED,
+                byteSize = byteSize,
+                sha256 = sha256,
+                terminationReason = context.terminationReason ?: latest.terminationReason,
             )
             ledger = ledger.copy(recordings = ledger.recordings + (finalized.recordingId to finalized))
             persist(ledger)
@@ -326,7 +383,7 @@ internal class LocalRecordingMetadataRepository(
         }
         if (decision is EventMediaExtractionDecision.ExistingReady) return decision
         val plan = (decision as EventMediaExtractionDecision.Extract).plan
-        if (!recordingFile(plan.recording.localMediaFileName).isFile) {
+        if (!recordingFile(plan.recording).isFile) {
             val reason = "finalized source recording file is missing"
             persistExtractionRejection(eventId, event, recording, existing, reason)
             return EventMediaExtractionDecision.Rejected(reason)
@@ -576,7 +633,11 @@ internal class LocalRecordingMetadataRepository(
     fun markRecordingInterrupted(recordingId: String, detail: String): LocalRecordingMetadata? {
         val current = ledger.recordings[recordingId] ?: return null
         if (current.finalized) return current
-        val interrupted = current.copy(interrupted = true, failureDetail = detail)
+        val interrupted = current.copy(
+            interrupted = true,
+            availability = LocalMediaAvailability.INTERRUPTED,
+            failureDetail = detail,
+        )
         val interruptedEvents = ledger.events.mapValues { (_, event) ->
             if (event.recordingId == recordingId && event.state != LocalEventMappingState.FAILED) {
                 event.copy(state = LocalEventMappingState.INTERRUPTED, failureDetail = detail)
@@ -590,13 +651,34 @@ internal class LocalRecordingMetadataRepository(
     }
 
     @Synchronized
+    fun updateRecordingSourceMetadata(context: LocalRecordingContext): LocalRecordingMetadata? {
+        val current = ledger.recordings[context.recordingId] ?: return null
+        require(current.mediaSource == context.mediaSource) { "recording source cannot change" }
+        val updated = current.copy(
+            availability = context.availability,
+            sourceGenerationId = context.sourceGenerationId,
+            armMonotonicNanos = context.recordingArmMonotonicNanos ?: current.armMonotonicNanos,
+            firstMuxedKeyframeAnchor = context.timelineAnchor ?: current.firstMuxedKeyframeAnchor,
+            reportedAudioSampleRate = context.reportedAudioSampleRate ?: current.reportedAudioSampleRate,
+            terminationReason = context.terminationReason ?: current.terminationReason,
+        )
+        ledger = ledger.copy(recordings = ledger.recordings + (updated.recordingId to updated))
+        persist(ledger)
+        return updated
+    }
+
+    @Synchronized
     fun snapshot(): LocalRecordingLedger = ledger
 
     private fun recoverInterruptedRecords(current: LocalRecordingLedger): LocalRecordingLedger {
         val unfinishedIds = current.recordings.values.filter { !it.finalized && !it.interrupted }.map { it.recordingId }.toSet()
         val recoveredRecordings = current.recordings.mapValues { (_, record) ->
             if (record.recordingId in unfinishedIds) {
-                record.copy(interrupted = true, failureDetail = "recording ownership was lost before finalization")
+                record.copy(
+                    interrupted = true,
+                    availability = LocalMediaAvailability.INTERRUPTED,
+                    failureDetail = "recording ownership was lost before finalization",
+                )
             } else {
                 record
             }
@@ -687,9 +769,15 @@ internal class LocalRecordingMetadataRepository(
             .onFailure { logger.warn("Unable to preserve malformed local recording metadata.", it) }
     }
 
-    private fun recordingFile(fileName: String): File {
-        validateFileName(fileName)
-        return File(recordingsDirectory, fileName)
+    internal fun recordingFile(recording: LocalRecordingMetadata): File {
+        validateFileName(recording.localMediaFileName)
+        val directory = requireNotNull(mediaDirectories[recording.mediaSource]) {
+            "no private media directory configured for ${recording.mediaSource}"
+        }
+        require(recording.mediaLocation.directoryName == directory.name) {
+            "recording media location does not match configured private directory"
+        }
+        return File(directory, recording.localMediaFileName)
     }
 
     private fun eventMediaFile(fileName: String): File {
@@ -719,7 +807,7 @@ internal class LocalRecordingMetadataRepository(
     private fun ledgerFile(): File = File(metadataDirectory, LEDGER_FILE_NAME)
 
     private fun encode(value: LocalRecordingLedger): String = JSONObject().apply {
-        put("schema_version", 1)
+        put("schema_version", 2)
         put("recordings", JSONArray().apply { value.recordings.values.sortedBy { it.recordingId }.forEach { put(it.toJson()) } })
         put("events", JSONArray().apply { value.events.values.sortedBy { it.eventId }.forEach { put(it.toJson()) } })
         put("event_media", JSONArray().apply { value.eventMedia.values.sortedBy { it.eventId }.forEach { put(it.toJson()) } })
@@ -728,7 +816,7 @@ internal class LocalRecordingMetadataRepository(
 
     private fun decode(serialized: String): LocalRecordingLedger {
         val root = JSONObject(serialized)
-        require(root.getInt("schema_version") == 1) { "unsupported local recording metadata schema" }
+        require(root.getInt("schema_version") in setOf(1, 2)) { "unsupported local recording metadata schema" }
         val recordings = root.getJSONArray("recordings").toList { it.toRecording() }.associateBy { it.recordingId }
         val events = root.getJSONArray("events").toList { it.toEvent() }.associateBy { it.eventId }
         val eventMediaArray = root.optJSONArray("event_media") ?: JSONArray()
@@ -763,6 +851,15 @@ internal class LocalRecordingMetadataRepository(
         put("audio_codec", audioCodec)
         put("audio_sample_rate", audioSampleRate)
         put("audio_channels", audioChannels)
+        put("media_source", mediaSource.name)
+        put("media_directory", mediaLocation.directoryName)
+        put("source_generation_id", sourceGenerationId)
+        put("availability", availability.name)
+        put("arm_monotonic_nanos", armMonotonicNanos)
+        put("first_muxed_keyframe_anchor", firstMuxedKeyframeAnchor?.toJson())
+        put("stream_path", streamPath)
+        put("reported_audio_sample_rate", reportedAudioSampleRate)
+        put("termination_reason", terminationReason)
     }
 
     private fun LocalEventMapping.toJson(): JSONObject = JSONObject().apply {
@@ -843,6 +940,18 @@ internal class LocalRecordingMetadataRepository(
         audioCodec = getString("audio_codec"),
         audioSampleRate = getInt("audio_sample_rate"),
         audioChannels = getInt("audio_channels"),
+        mediaSource = optNullableString("media_source")?.let(LocalMediaSourceId::valueOf) ?: LocalMediaSourceId.PHONE_CAMERA,
+        mediaLocation = LocalMediaLocation(
+            optNullableString("media_directory") ?: "recordings",
+            getString("local_media_file_name"),
+        ),
+        sourceGenerationId = optNullableString("source_generation_id") ?: getInt("capture_generation").toString(),
+        availability = optNullableString("availability")?.let(LocalMediaAvailability::valueOf) ?: LocalMediaAvailability.AVAILABLE,
+        armMonotonicNanos = optNullableLong("arm_monotonic_nanos"),
+        firstMuxedKeyframeAnchor = optNullableObject("first_muxed_keyframe_anchor")?.toTimelineAnchor(),
+        streamPath = optNullableString("stream_path"),
+        reportedAudioSampleRate = optNullableLong("reported_audio_sample_rate")?.toInt(),
+        terminationReason = optNullableString("termination_reason"),
     )
 
     private fun JSONObject.toEvent(): LocalEventMapping = LocalEventMapping(
@@ -936,6 +1045,21 @@ internal class LocalRecordingMetadataRepository(
 
     private fun JSONObject.optNullableBoolean(name: String): Boolean? =
         if (isNull(name)) null else getBoolean(name)
+
+    private fun JSONObject.optNullableObject(name: String): JSONObject? =
+        if (isNull(name)) null else getJSONObject(name)
+
+    private fun MediaTimelineAnchor.toJson(): JSONObject = JSONObject().apply {
+        put("android_monotonic_nanos", androidMonotonicNanos)
+        put("source_pts_us", sourcePtsUs)
+        put("mp4_pts_us", mp4PtsUs)
+    }
+
+    private fun JSONObject.toTimelineAnchor(): MediaTimelineAnchor = MediaTimelineAnchor(
+        androidMonotonicNanos = getLong("android_monotonic_nanos"),
+        sourcePtsUs = getLong("source_pts_us"),
+        mp4PtsUs = getLong("mp4_pts_us"),
+    )
 
     private fun <T> JSONArray.toList(mapper: (JSONObject) -> T): List<T> =
         List(length()) { index -> mapper(getJSONObject(index)) }

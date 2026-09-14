@@ -59,6 +59,37 @@ class GoProH264PreviewTest {
     }
 
     @Test
+    fun `preview diagnostics distinguish received queued rendered and dropped output buffers`() {
+        val decoder = FakeDecoder().apply {
+            drainResult = GoProDecoderDrainResult(
+                outputBuffersProduced = 3,
+                outputBuffersRendered = 2,
+                outputBuffersDropped = 1,
+            )
+        }
+        val controller = GoProH264PreviewController(
+            decoderFactory = GoProAvcDecoderFactory { decoder },
+            executor = Executor { it.run() },
+        )
+
+        controller.attachPreviewSurface("surface")
+        controller.acceptVideoFormat(videoFormat())
+        controller.acceptVideoSample(videoSample())
+
+        val diagnostics = controller.diagnostics()
+        assertEquals(1L, diagnostics.videoAccessUnitsReceived)
+        assertEquals(1L, diagnostics.accessUnitsQueuedToDecoder)
+        assertEquals(3L, diagnostics.outputBuffersProduced)
+        assertEquals(2L, diagnostics.outputBuffersRendered)
+        assertEquals(1L, diagnostics.outputBuffersDropped)
+        assertEquals(1L, diagnostics.framesDropped)
+        assertEquals(0L, diagnostics.decoderErrors)
+        assertEquals(123_000L, diagnostics.lastInputPtsUs)
+        assertTrue(diagnostics.lastInputElapsedMs != null)
+        assertTrue(diagnostics.lastRenderedElapsedMs != null)
+    }
+
+    @Test
     fun `surface loss releases decoder and generation change requires fresh keyframe`() {
         val decoder = FakeDecoder()
         val controller = GoProH264PreviewController(
@@ -79,6 +110,21 @@ class GoProH264PreviewTest {
         controller.acceptVideoSample(videoSample(generation = 2, keyFrame = true))
         assertEquals(GoProPreviewState.DECODING, controller.diagnostics().state)
         assertEquals(2, decoder.configureCalls)
+    }
+
+    @Test fun `same healthy surface does not reset decoder but changed or reattached surface does`() {
+        val decoder = FakeDecoder()
+        val controller = GoProH264PreviewController(GoProAvcDecoderFactory { decoder }, Executor { it.run() })
+        controller.attachPreviewSurface("first")
+        controller.acceptVideoFormat(videoFormat())
+        controller.acceptVideoSample(videoSample())
+        controller.attachPreviewSurface("first")
+        assertEquals(0, decoder.releaseCalls)
+        controller.attachPreviewSurface("second")
+        assertEquals(1, decoder.releaseCalls)
+        controller.detachPreviewSurface("second")
+        controller.attachPreviewSurface("second")
+        assertTrue(decoder.releaseCalls >= 1)
     }
 
     @Test
@@ -157,6 +203,10 @@ class GoProH264PreviewTest {
     private class FakeDecoder : GoProAvcDecoder {
         var configureCalls = 0
         var releaseCalls = 0
+        var drainResult = GoProDecoderDrainResult(
+            outputBuffersProduced = 1,
+            outputBuffersRendered = 1,
+        )
         val queued = mutableListOf<ByteArray>()
 
         override fun configure(format: GoProH264Format, config: AvcDecoderConfiguration, outputSurface: Any): String {
@@ -169,7 +219,7 @@ class GoProH264PreviewTest {
             return true
         }
 
-        override fun drainOutput(): Int = 1
+        override fun drainOutput(): GoProDecoderDrainResult = drainResult
 
         override fun release() {
             releaseCalls += 1

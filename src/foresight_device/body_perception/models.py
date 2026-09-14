@@ -7,13 +7,30 @@ from enum import StrEnum
 
 from foresight_device.perception.models import NormalizedBoundingBox
 
+# These names intentionally describe anatomy rather than a MediaPipe-specific index.
+# Providers may emit a subset, but semantic hand-state classification requires the
+# complete joint geometry exposed by the MediaPipe Hand Landmarker.
 LANDMARK_NAMES = (
     "wrist",
+    "thumb_cmc",
+    "thumb_mcp",
+    "thumb_ip",
     "thumb_tip",
     "index_mcp",
+    "index_pip",
+    "index_dip",
     "index_tip",
+    "middle_mcp",
+    "middle_pip",
+    "middle_dip",
     "middle_tip",
+    "ring_mcp",
+    "ring_pip",
+    "ring_dip",
     "ring_tip",
+    "pinky_mcp",
+    "pinky_pip",
+    "pinky_dip",
     "pinky_tip",
 )
 
@@ -82,6 +99,11 @@ class HandObservation:
     @property
     def fingertip(self) -> NormalizedLandmark | None:
         return next((item for item in self.landmarks if item.name == "index_tip"), None)
+
+    def landmark(self, name: str) -> NormalizedLandmark | None:
+        """Return a named provider-neutral landmark when the provider supplied it."""
+
+        return next((item for item in self.landmarks if item.name == name), None)
 
     @property
     def bounding_box(self) -> NormalizedBoundingBox:

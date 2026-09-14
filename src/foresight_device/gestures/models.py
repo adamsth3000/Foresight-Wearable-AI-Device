@@ -3,8 +3,45 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from foresight_device.body_perception.models import SelfAssociationStatus
+
+
+class HandState(StrEnum):
+    """Evidence-derived hand primitives; they make no assertion about user intent."""
+
+    OPEN_HAND = "OPEN_HAND"
+    CLOSED_HAND = "CLOSED_HAND"
+    PINCH = "PINCH"
+    POINT = "POINT"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticGestureEvidence:
+    """Compact, inspectable geometry and temporal support for a semantic primitive."""
+
+    support_observation_count: int
+    duration_seconds: float
+    consistency: float
+    peak_observation_id: str
+    palm_scale: float
+    thumb_index_distance_normalized: float | None
+    extended_fingers: tuple[str, ...]
+    flexed_fingers: tuple[str, ...]
+    reasons: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.support_observation_count < 1 or self.duration_seconds < 0:
+            raise ValueError("semantic gesture evidence support is invalid")
+        if not 0 <= self.consistency <= 1 or not self.peak_observation_id or self.palm_scale <= 0:
+            raise ValueError("semantic gesture evidence confidence or scale is invalid")
+        if (
+            self.thumb_index_distance_normalized is not None
+            and self.thumb_index_distance_normalized < 0
+        ):
+            raise ValueError("semantic pinch distance is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +59,7 @@ class GestureEventCandidate:
     self_association_status: SelfAssociationStatus
     fingertip_x: float | None
     fingertip_y: float | None
+    semantic_evidence: SemanticGestureEvidence | None = None
 
     def __post_init__(self) -> None:
         if not self.gesture_event_id or not self.hand_track_id or not self.observation_ids:
@@ -36,3 +74,6 @@ class GestureEventCandidate:
             raise ValueError("gesture event timestamps must be ordered")
         if not 0 <= self.gesture_confidence <= 1 or not 0 <= self.motion_confidence <= 1:
             raise ValueError("gesture confidences must be within 0.0 and 1.0")
+        if self.gesture_type in {item.value for item in HandState if item != HandState.UNKNOWN}:
+            if self.semantic_evidence is None:
+                raise ValueError("semantic gesture candidates require geometric evidence")

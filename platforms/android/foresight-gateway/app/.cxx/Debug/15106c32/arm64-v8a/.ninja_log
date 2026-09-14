@@ -1,0 +1,6 @@
+# ninja log v5
+1	1984	8100280294527092	CMakeFiles/foresight_gopro_ingress.dir/gopro_rtmp_ingress.cpp.o	f9725d196742fd44
+1993	2181	8100280296436032	C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/build/intermediates/cxx/Debug/15106c32/obj/arm64-v8a/libforesight_gopro_ingress.so	3167e022affad1d3
+1	27	0	clean	34279bfff8606f56
+6	3397	8100583180410813	CMakeFiles/foresight_gopro_ingress.dir/gopro_rtmp_ingress.cpp.o	f9725d196742fd44
+3398	3756	8100583184070297	C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/build/intermediates/cxx/Debug/15106c32/obj/arm64-v8a/libforesight_gopro_ingress.so	3167e022affad1d3

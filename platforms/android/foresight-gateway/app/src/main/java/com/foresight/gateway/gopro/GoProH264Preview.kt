@@ -3,6 +3,8 @@ package com.foresight.gateway.gopro
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import android.view.Surface
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
@@ -117,9 +119,15 @@ object AvccAccessUnit {
 interface GoProAvcDecoder {
     fun configure(format: GoProH264Format, config: AvcDecoderConfiguration, outputSurface: Any): String
     fun queueAccessUnit(data: ByteArray, presentationTimeUs: Long): Boolean
-    fun drainOutput(): Int
+    fun drainOutput(): GoProDecoderDrainResult
     fun release()
 }
+
+data class GoProDecoderDrainResult(
+    val outputBuffersProduced: Int = 0,
+    val outputBuffersRendered: Int = 0,
+    val outputBuffersDropped: Int = 0,
+)
 
 fun interface GoProAvcDecoderFactory {
     fun create(): GoProAvcDecoder
@@ -155,15 +163,21 @@ private class AndroidGoProAvcDecoder : GoProAvcDecoder {
         return true
     }
 
-    override fun drainOutput(): Int {
-        val active = codec ?: return 0
+    override fun drainOutput(): GoProDecoderDrainResult {
+        val active = codec ?: return GoProDecoderDrainResult()
         val info = MediaCodec.BufferInfo()
+        var produced = 0
         var rendered = 0
+        var dropped = 0
         while (true) {
             val index = active.dequeueOutputBuffer(info, 0)
-            if (index < 0) return rendered
-            active.releaseOutputBuffer(index, info.size > 0)
-            if (info.size > 0) rendered += 1
+            if (index < 0) {
+                return GoProDecoderDrainResult(produced, rendered, dropped)
+            }
+            produced += 1
+            val render = info.size > 0
+            active.releaseOutputBuffer(index, render)
+            if (render) rendered += 1 else dropped += 1
         }
     }
 
@@ -196,6 +210,10 @@ class GoProH264PreviewController(
     private var decoder: GoProAvcDecoder? = null
     private var diagnostics = GoProPreviewDiagnostics(queueCapacity = capacity)
     private var lastPublishedNanos = Long.MIN_VALUE
+    private var lastPipelineLogElapsedMs = Long.MIN_VALUE
+    private var decoderInstance = 0L
+    private var firstInputLoggedForDecoderInstance = 0L
+    private var firstRenderedLoggedForDecoderInstance = 0L
 
     init {
         require(capacity > 0) { "capacity must be positive" }
@@ -203,7 +221,18 @@ class GoProH264PreviewController(
 
     fun attachPreviewSurface(surface: Any) {
         executor.execute {
-            synchronized(lock) { attachedSurface = surface }
+            val skipReset = synchronized(lock) {
+                attachedSurface === surface && decoder != null && diagnostics.state == GoProPreviewState.DECODING
+            }
+            if (skipReset) {
+                Log.d(TAG, "Preview surface attach skipped: already decoding surface=${System.identityHashCode(surface)}")
+                return@execute
+            }
+            synchronized(lock) {
+                attachedSurface = surface
+                diagnostics = diagnostics.copy(surfaceIdentity = System.identityHashCode(surface))
+            }
+            Log.i(TAG, "Preview surface attach accepted: surface=${System.identityHashCode(surface)}")
             resetDecoderForSurface("Preview surface attached.")
         }
     }
@@ -214,9 +243,9 @@ class GoProH264PreviewController(
                 if (surface != null && attachedSurface !== surface) return@execute
                 attachedSurface = null
                 pending.clear()
-                diagnostics = diagnostics.copy(queueDepth = 0)
+                diagnostics = diagnostics.copy(queueDepth = 0, surfaceIdentity = null)
             }
-            releaseDecoder()
+            releaseDecoder("Preview surface detached.")
             updateState(GoProPreviewState.DETACHED, "Preview surface detached.")
         }
     }
@@ -234,11 +263,21 @@ class GoProH264PreviewController(
                     framesQueued = diagnostics.framesQueued,
                     framesRendered = diagnostics.framesRendered,
                     framesDropped = diagnostics.framesDropped,
+                    videoAccessUnitsReceived = diagnostics.videoAccessUnitsReceived,
+                    accessUnitsQueuedToDecoder = diagnostics.accessUnitsQueuedToDecoder,
+                    outputBuffersProduced = diagnostics.outputBuffersProduced,
+                    outputBuffersRendered = diagnostics.outputBuffersRendered,
+                    outputBuffersDropped = diagnostics.outputBuffersDropped,
+                    decoderErrors = diagnostics.decoderErrors,
+                    surfaceIdentity = attachedSurface?.let(System::identityHashCode),
+                    lastInputPtsUs = diagnostics.lastInputPtsUs,
+                    lastInputElapsedMs = diagnostics.lastInputElapsedMs,
+                    lastRenderedElapsedMs = diagnostics.lastRenderedElapsedMs,
                     queueDepth = pending.size,
                     queueCapacity = capacity,
                 )
             }
-            releaseDecoder()
+            releaseDecoder("Video format changed.")
             val error = parsed.exceptionOrNull()
             when {
                 error != null -> updateState(GoProPreviewState.ERROR, error.message)
@@ -258,19 +297,31 @@ class GoProH264PreviewController(
                 config = null
                 diagnostics = diagnostics.copy(queueDepth = 0)
             }
-            releaseDecoder()
+            releaseDecoder("$detail")
             val nextState = if (currentSurface() == null) GoProPreviewState.DETACHED else GoProPreviewState.WAITING_FOR_STREAM
             updateState(nextState, detail)
         }
     }
 
     fun acceptVideoSample(sample: GoProEncodedSample) {
+        val receivedElapsedMs = SystemClock.elapsedRealtime()
+        synchronized(lock) {
+            diagnostics = diagnostics.copy(
+                videoAccessUnitsReceived = diagnostics.videoAccessUnitsReceived + 1,
+                lastInputPtsUs = sample.presentationTimeUs ?: diagnostics.lastInputPtsUs,
+                lastInputElapsedMs = sample.presentationTimeUs?.let { receivedElapsedMs } ?: diagnostics.lastInputElapsedMs,
+            )
+        }
         if (sample.presentationTimeUs == null) {
             recordDrop("Preview dropped video sample without PTS.")
+            maybeLogPipelineDiagnostics()
             return
         }
         synchronized(lock) {
-            if (closed || attachedSurface == null) return
+            if (closed || attachedSurface == null) {
+                maybeLogPipelineDiagnostics()
+                return
+            }
             if (pending.size == capacity) {
                 pending.removeFirst()
                 diagnostics = diagnostics.copy(framesDropped = diagnostics.framesDropped + 1)
@@ -279,6 +330,7 @@ class GoProH264PreviewController(
             diagnostics = diagnostics.copy(queueDepth = pending.size)
         }
         scheduleDrain()
+        maybeLogPipelineDiagnostics()
     }
 
     fun diagnostics(): GoProPreviewDiagnostics = synchronized(lock) { diagnostics }
@@ -289,7 +341,7 @@ class GoProH264PreviewController(
             pending.clear()
         }
         executor.execute {
-            releaseDecoder()
+            releaseDecoder("Preview closed.")
             updateState(GoProPreviewState.DETACHED, "Preview closed.")
         }
         (executor as? ExecutorService)?.shutdownNow()
@@ -342,8 +394,11 @@ class GoProH264PreviewController(
                 decoderFactory.create().also { created ->
                     val name = created.configure(activeFormat, activeConfig, surface)
                     updateDecoderName(name)
+                    decoderInstance += 1
+                    logDecoderTransition("DECODER_CREATED", "AVC decoder configured.")
                 }
             }.getOrElse { error ->
+                recordDecoderError()
                 updateState(GoProPreviewState.ERROR, "AVC decoder configure failed: ${error.message}")
                 return
             }
@@ -365,22 +420,39 @@ class GoProH264PreviewController(
                 recordDrop("Preview decoder input unavailable.")
                 return
             }
-            val rendered = activeDecoder.drainOutput()
+            val elapsedMs = SystemClock.elapsedRealtime()
             synchronized(lock) {
                 diagnostics = diagnostics.copy(
                     framesQueued = diagnostics.framesQueued + 1,
-                    framesRendered = diagnostics.framesRendered + rendered,
+                    accessUnitsQueuedToDecoder = diagnostics.accessUnitsQueuedToDecoder + 1,
                 )
             }
+            logFirstInputForDecoder(sample.presentationTimeUs, elapsedMs)
+            val output = activeDecoder.drainOutput()
+            val renderedElapsedMs = if (output.outputBuffersRendered > 0) SystemClock.elapsedRealtime() else null
+            synchronized(lock) {
+                diagnostics = diagnostics.copy(
+                    framesRendered = diagnostics.framesRendered + output.outputBuffersRendered,
+                    framesDropped = diagnostics.framesDropped + output.outputBuffersDropped,
+                    outputBuffersProduced = diagnostics.outputBuffersProduced + output.outputBuffersProduced,
+                    outputBuffersRendered = diagnostics.outputBuffersRendered + output.outputBuffersRendered,
+                    outputBuffersDropped = diagnostics.outputBuffersDropped + output.outputBuffersDropped,
+                    lastRenderedElapsedMs = renderedElapsedMs ?: diagnostics.lastRenderedElapsedMs,
+                )
+            }
+            if (renderedElapsedMs != null) logFirstRenderedForDecoder(renderedElapsedMs)
+            maybeLogPipelineDiagnostics()
             publish()
         }.onFailure { error ->
-            releaseDecoder()
+            recordDecoderError()
+            releaseDecoder("AVC decoder failed: ${error.message}")
             updateState(GoProPreviewState.ERROR, "AVC decoder failed: ${error.message}")
         }
     }
 
     private fun resetDecoderForSurface(detail: String) {
-        releaseDecoder()
+        logDecoderTransition("DECODER_RESET", detail)
+        releaseDecoder(detail)
         when {
             synchronized(lock) { format } == null -> updateState(GoProPreviewState.WAITING_FOR_STREAM, detail)
             synchronized(lock) { config } == null -> updateState(GoProPreviewState.WAITING_FOR_CONFIG, detail)
@@ -388,7 +460,8 @@ class GoProH264PreviewController(
         }
     }
 
-    private fun releaseDecoder() {
+    private fun releaseDecoder(reason: String) {
+        logDecoderTransition("DECODER_RELEASE", reason)
         decoder?.release()
         decoder = null
         synchronized(lock) { diagnostics = diagnostics.copy(decoderName = null) }
@@ -403,6 +476,75 @@ class GoProH264PreviewController(
     private fun recordDrop(detail: String, state: GoProPreviewState? = null) {
         synchronized(lock) { diagnostics = diagnostics.copy(framesDropped = diagnostics.framesDropped + 1) }
         if (state != null) updateState(state, detail) else publish(detail)
+    }
+
+    private fun recordDecoderError() {
+        synchronized(lock) { diagnostics = diagnostics.copy(decoderErrors = diagnostics.decoderErrors + 1) }
+    }
+
+    private fun logFirstInputForDecoder(presentationTimeUs: Long, elapsedMs: Long) {
+        if (decoderInstance == 0L || firstInputLoggedForDecoderInstance == decoderInstance) return
+        firstInputLoggedForDecoderInstance = decoderInstance
+        Log.i(
+            TAG,
+            "DECODER_FIRST_INPUT decoderInstance=$decoderInstance generation=${diagnostics().generationId} " +
+                "surface=${diagnostics().surfaceIdentity} state=${diagnostics().state} ptsUs=$presentationTimeUs " +
+                "elapsedMs=$elapsedMs",
+        )
+    }
+
+    private fun logFirstRenderedForDecoder(elapsedMs: Long) {
+        if (decoderInstance == 0L || firstRenderedLoggedForDecoderInstance == decoderInstance) return
+        firstRenderedLoggedForDecoderInstance = decoderInstance
+        Log.i(
+            TAG,
+            "DECODER_FIRST_RENDERED decoderInstance=$decoderInstance generation=${diagnostics().generationId} " +
+                "surface=${diagnostics().surfaceIdentity} state=${diagnostics().state} elapsedMs=$elapsedMs",
+        )
+    }
+
+    private fun logDecoderTransition(event: String, reason: String) {
+        val snapshot = diagnostics()
+        val activeFormat = synchronized(lock) { format }
+        val activeConfig = synchronized(lock) { config }
+        Log.i(
+            TAG,
+            "$event reason=$reason decoderInstance=$decoderInstance generation=${snapshot.generationId} " +
+                "surface=${snapshot.surfaceIdentity} state=${snapshot.state} decoder=${snapshot.decoderName} " +
+                "codec=${activeFormat?.codecName} format=${activeFormat?.width}x${activeFormat?.height} " +
+                "representation=${activeFormat?.representation} nalLength=${activeConfig?.nalLengthSize} " +
+                "sps=${activeConfig?.sps?.size} pps=${activeConfig?.pps?.size} " +
+                "elapsedMs=${SystemClock.elapsedRealtime()}",
+        )
+    }
+
+    private fun maybeLogPipelineDiagnostics() {
+        val now = SystemClock.elapsedRealtime()
+        val shouldLog = synchronized(lock) {
+            if (
+                lastPipelineLogElapsedMs != Long.MIN_VALUE &&
+                now - lastPipelineLogElapsedMs < PIPELINE_DIAGNOSTIC_INTERVAL_MS
+            ) {
+                false
+            } else {
+                lastPipelineLogElapsedMs = now
+                true
+            }
+        }
+        if (!shouldLog) return
+        val snapshot = diagnostics()
+        val msSinceLastInput = snapshot.lastInputElapsedMs?.let { now - it }
+        val msSinceLastRendered = snapshot.lastRenderedElapsedMs?.let { now - it }
+        Log.i(
+            TAG,
+            "PIPELINE generation=${snapshot.generationId} surface=${snapshot.surfaceIdentity} " +
+                "decoderState=${snapshot.state} received=${snapshot.videoAccessUnitsReceived} " +
+                "queued=${snapshot.accessUnitsQueuedToDecoder} output=${snapshot.outputBuffersProduced} " +
+                "rendered=${snapshot.outputBuffersRendered} dropped=${snapshot.framesDropped} " +
+                "lastInputPts=${snapshot.lastInputPtsUs} lastInputElapsedMs=${snapshot.lastInputElapsedMs} " +
+                "lastRenderedElapsedMs=${snapshot.lastRenderedElapsedMs} " +
+                "msSinceLastInput=$msSinceLastInput msSinceLastRendered=$msSinceLastRendered",
+        )
     }
 
     private fun updateState(state: GoProPreviewState, detail: String?) {
@@ -422,7 +564,9 @@ class GoProH264PreviewController(
     }
 
     companion object {
+        private const val TAG = "GoProH264Preview"
         const val DEFAULT_CAPACITY = 8
         private const val DIAGNOSTIC_INTERVAL_NANOS = 500_000_000L
+        private const val PIPELINE_DIAGNOSTIC_INTERVAL_MS = 1_000L
     }
 }

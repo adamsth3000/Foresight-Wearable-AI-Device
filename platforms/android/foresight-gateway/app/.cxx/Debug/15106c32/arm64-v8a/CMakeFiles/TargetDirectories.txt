@@ -1,0 +1,3 @@
+C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/.cxx/Debug/15106c32/arm64-v8a/CMakeFiles/foresight_gopro_ingress.dir
+C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/.cxx/Debug/15106c32/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/taylo/OneDrive/Documents/GitHub/adamsth3000/Foresight-Wearable-AI-Device/platforms/android/foresight-gateway/app/.cxx/Debug/15106c32/arm64-v8a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,307 @@
+09-03 15:43:22.473 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:22.755 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:22.961 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:22.981 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:23.144 16531 16727 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2669 queued=2622 output=2612 rendered=2612 dropped=47 lastInputPts=89355000 lastInputElapsedMs=48808486 lastRenderedElapsedMs=48808494 msSinceLastInput=8 msSinceLastRendered=0
+09-03 15:43:23.256 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:23.498 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:23.759 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:23.965 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:23.998 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:24.162 16531 17464 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2699 queued=2651 output=2641 rendered=2641 dropped=47 lastInputPts=90356000 lastInputElapsedMs=48809512 lastRenderedElapsedMs=48809460 msSinceLastInput=0 msSinceLastRendered=52
+09-03 15:43:24.281 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:24.519 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:24.811 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:25.009 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:25.035 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:25.185 16531 17464 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2730 queued=2682 output=2671 rendered=2671 dropped=47 lastInputPts=91391000 lastInputElapsedMs=48810535 lastRenderedElapsedMs=48810491 msSinceLastInput=0 msSinceLastRendered=44
+09-03 15:43:25.316 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:25.537 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:25.856 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:26.032 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:26.053 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:26.236 16531 17464 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2761 queued=2713 output=2703 rendered=2703 dropped=47 lastInputPts=92425000 lastInputElapsedMs=48811585 lastRenderedElapsedMs=48811529 msSinceLastInput=1 msSinceLastRendered=57
+09-03 15:43:26.388 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:26.591 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:26.917 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:27.036 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:27.097 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:27.256 16531 17464 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2791 queued=2743 output=2733 rendered=2733 dropped=47 lastInputPts=93426000 lastInputElapsedMs=48812603 lastRenderedElapsedMs=48812536 msSinceLastInput=2 msSinceLastRendered=69
+09-03 15:43:27.448 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:27.600 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:27.951 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:28.043 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:28.105 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:43:28.271 16531 17464 I GoProH264Preview: PIPELINE generation=1 surface=185994783 decoderState=DECODING received=2821 queued=2773 output=2763 rendered=2763 dropped=47 lastInputPts=94427000 lastInputElapsedMs=48813620 lastRenderedElapsedMs=48813539 msSinceLastInput=1 msSinceLastRendered=82
+09-03 15:43:28.408 16531 16531 I CaptureForegroundService: GoPro ingress state=STOPPED; destination=null; detail=RTMP listener stopped.
+09-03 15:43:28.442  8092  8671 I NotificationPipeline: Processing notification dismissal on phone: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:28.467 16531 16531 I GatewayActivity: PREVIEW_COVER_VISIBILITY old=GONE new=VISIBLE status=IDLE statusDetail=null previewOwner=PHONE ingress=STOPPED surfaceValid=true activityLifecycle=RESUMED elapsedMs=48813817
+09-03 15:43:28.467 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Preview surface detached. decoderInstance=1 generation=1 surface=null state=DECODING decoder=c2.exynos.h264.decoder codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48813817
+09-03 15:43:38.382 16531 16531 I CaptureForegroundService: GoPro ingress state=LISTENING; destination=rtmp://192.168.1.175:1935/gopro; detail=Starting RTMP listener.
+09-03 15:43:38.391 16531 16725 I CaptureForegroundService: GoPro ingress state=LISTENING; destination=rtmp://192.168.1.175:1935/gopro; detail=rtmp://0.0.0.0:1935/gopro
+09-03 15:43:38.635  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.636  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.636  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.637  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.642  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.642  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:38.868 16531 16727 I GoProH264Preview: Preview surface attach accepted: surface=185994783
+09-03 15:43:38.868 16531 16727 I GoProH264Preview: DECODER_RESET reason=Preview surface attached. decoderInstance=1 generation=1 surface=185994783 state=DETACHED decoder=null codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48824219
+09-03 15:43:38.869 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Preview surface attached. decoderInstance=1 generation=1 surface=185994783 state=DETACHED decoder=null codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48824219
+09-03 15:43:38.869 16531 16727 I CaptureForegroundService: GoPro ingress state=LISTENING; destination=rtmp://192.168.1.175:1935/gopro; detail=rtmp://0.0.0.0:1935/gopro
+09-03 15:43:39.109  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:39.111  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:39.389 16531 16531 I GatewayActivity: PREVIEW_COVER_VISIBILITY old=VISIBLE new=GONE status=IDLE statusDetail=null previewOwner=GOPRO ingress=LISTENING surfaceValid=true activityLifecycle=RESUMED elapsedMs=48824739
+09-03 15:43:42.325 16531 16531 I GatewayActivity: Preview surface destroyed; detaching activity preview request.
+09-03 15:43:42.326 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Preview surface detached. decoderInstance=1 generation=1 surface=null state=WAITING_FOR_KEYFRAME decoder=null codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48827676
+09-03 15:43:42.326 16531 16727 I CaptureForegroundService: GoPro ingress state=LISTENING; destination=rtmp://192.168.1.175:1935/gopro; detail=rtmp://0.0.0.0:1935/gopro
+09-03 15:43:42.562  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:43:42.565  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.285 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Publisher connected; waiting for fresh AVC config. decoderInstance=1 generation=1 surface=null state=DETACHED decoder=null codec=null format=nullxnull representation=null nalLength=null sps=null pps=null elapsedMs=48859635
+09-03 15:44:14.285 16531 16725 I CaptureForegroundService: GoPro ingress state=PUBLISHER_CONNECTED; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP publisher connected.
+09-03 15:44:14.285 16531 16727 I CaptureForegroundService: GoPro ingress state=PUBLISHER_CONNECTED; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP publisher connected.
+09-03 15:44:14.430 16531 16531 I GatewayActivity: PREVIEW_COVER_VISIBILITY old=GONE new=VISIBLE status=IDLE statusDetail=null previewOwner=NONE ingress=PUBLISHER_CONNECTED surfaceValid=false activityLifecycle=RESUMED elapsedMs=48859780
+09-03 15:44:14.460 16531 16531 I GatewayActivity: Preview surface created: valid=true, visible=true, alpha=1.0, dimensions=1146x1032.
+09-03 15:44:14.460 16531 16531 I GatewayActivity: Preview surface changed format=4: valid=true, visible=true, alpha=1.0, dimensions=1146x1032.
+09-03 15:44:14.472 16531 16727 I GoProH264Preview: Preview surface attach accepted: surface=185994783
+09-03 15:44:14.472 16531 16727 I GoProH264Preview: DECODER_RESET reason=Preview surface attached. decoderInstance=1 generation=1 surface=185994783 state=DETACHED decoder=null codec=null format=nullxnull representation=null nalLength=null sps=null pps=null elapsedMs=48859823
+09-03 15:44:14.473 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Preview surface attached. decoderInstance=1 generation=1 surface=185994783 state=DETACHED decoder=null codec=null format=nullxnull representation=null nalLength=null sps=null pps=null elapsedMs=48859823
+09-03 15:44:14.473 16531 16727 I CaptureForegroundService: GoPro ingress state=PUBLISHER_CONNECTED; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP publisher connected.
+09-03 15:44:14.483 16531 16531 I GatewayActivity: PREVIEW_COVER_VISIBILITY old=VISIBLE new=GONE status=IDLE statusDetail=null previewOwner=GOPRO ingress=PUBLISHER_CONNECTED surfaceValid=true activityLifecycle=RESUMED elapsedMs=48859833
+09-03 15:44:14.544  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.546  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.550  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.551  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.704  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:14.705  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.208 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.211 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.213 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.213 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Video format changed. decoderInstance=1 generation=2 surface=185994783 state=WAITING_FOR_STREAM decoder=null codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48860563
+09-03 15:44:15.213 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.214 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.216 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=WAITING_FOR_KEYFRAME received=2828 queued=2780 output=2770 rendered=2770 dropped=47 lastInputPts=333000 lastInputElapsedMs=48860566 lastRenderedElapsedMs=48813758 msSinceLastInput=0 msSinceLastRendered=46808
+09-03 15:44:15.216 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.252 16531 16727 I GoProH264Preview: DECODER_CREATED reason=AVC decoder configured. decoderInstance=2 generation=2 surface=185994783 state=CONFIGURING decoder=c2.exynos.h264.decoder codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48860603
+09-03 15:44:15.253 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.255 16531 16727 I GoProH264Preview: DECODER_FIRST_INPUT decoderInstance=2 generation=2 surface=185994783 state=DECODING ptsUs=333000 elapsedMs=48860606
+09-03 15:44:15.419  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.420  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.425  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.425  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.431  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.431  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.433  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.433  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.434  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.434  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.437  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.438  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.461  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.461  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.612 16531 16727 I GoProH264Preview: DECODER_FIRST_RENDERED decoderInstance=2 generation=2 surface=185994783 state=DECODING elapsedMs=48860962
+09-03 15:44:15.716 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.754 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:15.925  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.926  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.962  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:15.963  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:16.221 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:16.224 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:16.224 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=2898 queued=2809 output=2789 rendered=2789 dropped=88 lastInputPts=2669000 lastInputElapsedMs=48861575 lastRenderedElapsedMs=48861504 msSinceLastInput=0 msSinceLastRendered=71
+09-03 15:44:16.287 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:16.434  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:16.434  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:16.722 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:16.814 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.234 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.254 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.255 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=2928 queued=2839 output=2818 rendered=2818 dropped=88 lastInputPts=3670000 lastInputElapsedMs=48862604 lastRenderedElapsedMs=48862485 msSinceLastInput=1 msSinceLastRendered=120
+09-03 15:44:17.347 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.742 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.921 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:17.999  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:18.000  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:18.248 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:18.263 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:18.269 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=2960 queued=2871 output=2850 rendered=2850 dropped=88 lastInputPts=4738000 lastInputElapsedMs=48863619 lastRenderedElapsedMs=48863571 msSinceLastInput=0 msSinceLastRendered=48
+09-03 15:44:18.430 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:18.754 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:18.929 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:19.256 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:19.274 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:19.275 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=2990 queued=2901 output=2880 rendered=2880 dropped=88 lastInputPts=5739000 lastInputElapsedMs=48864625 lastRenderedElapsedMs=48864590 msSinceLastInput=0 msSinceLastRendered=35
+09-03 15:44:19.451 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:19.785 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:19.959 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:20.288 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:20.301 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:20.305 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3021 queued=2932 output=2912 rendered=2912 dropped=88 lastInputPts=6773000 lastInputElapsedMs=48865655 lastRenderedElapsedMs=48865622 msSinceLastInput=0 msSinceLastRendered=33
+09-03 15:44:20.465 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:20.790 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:20.990 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:21.294 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:21.301 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:21.306 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3051 queued=2963 output=2943 rendered=2943 dropped=88 lastInputPts=7774000 lastInputElapsedMs=48866651 lastRenderedElapsedMs=48866657 msSinceLastInput=6 msSinceLastRendered=0
+09-03 15:44:21.553 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:21.812 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:22.061 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:22.314 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:22.320 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:22.323 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3082 queued=2993 output=2973 rendered=2973 dropped=88 lastInputPts=8808000 lastInputElapsedMs=48867673 lastRenderedElapsedMs=48867636 msSinceLastInput=0 msSinceLastRendered=37
+09-03 15:44:22.626 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:22.823 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:23.159 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:23.333 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:23.342 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:23.342 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3112 queued=3023 output=3002 rendered=3002 dropped=88 lastInputPts=9809000 lastInputElapsedMs=48868692 lastRenderedElapsedMs=48868646 msSinceLastInput=0 msSinceLastRendered=46
+09-03 15:44:23.689 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:23.855 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:24.193 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:24.348 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:24.358 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:24.360 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3143 queued=3054 output=3034 rendered=3034 dropped=88 lastInputPts=10844000 lastInputElapsedMs=48869710 lastRenderedElapsedMs=48869691 msSinceLastInput=0 msSinceLastRendered=19
+09-03 15:44:24.445 16531 16531 I GatewayActivity: Capture start requested: mode=FIELD rtsp=rtsp://100.73.120.70:8555/foresight-phone
+09-03 15:44:24.471 16531 16531 I CaptureForegroundService: Capture start requested: mode=FIELD rtsp=rtsp://100.73.120.70:8555/foresight-phone; controllerState=IDLE, hasActiveSession=false, dispatchInFlight=false, publisherGeneration=1, publisherState=IDLE; dispatching FIELD capture start; mediaSource=GOPRO_RTMP.
+09-03 15:44:24.471 16531 16531 I CaptureForegroundService: FIELD_GOPRO_START_BEFORE status=IDLE statusDetail=null configuredSource=GOPRO_RTMP activeSource=null activeSession=false ingress=LIVE previewState=DECODING previewSurface=185994783 decoderGeneration=2 received=3137 rendered=3029 lastInputPts=10643000 msSinceLastRendered=278 elapsedMs=48869821
+09-03 15:44:24.486 16531 16531 I CaptureForegroundService: FIELD_GOPRO_START_AFTER status=STREAMING statusDetail=FIELD GoPro capture ready for events configuredSource=GOPRO_RTMP activeSource=GOPRO_RTMP activeSession=true ingress=LIVE previewState=DECODING previewSurface=185994783 decoderGeneration=2 received=3137 rendered=3029 lastInputPts=10643000 msSinceLastRendered=293 elapsedMs=48869836
+09-03 15:44:24.486 16531 16531 I CaptureForegroundService: FIELD GoPro capture started through FieldSessionCoordinator.
+09-03 15:44:24.768 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:24.878 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:25.297 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:25.370 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:25.383 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:25.385 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3172 queued=3083 output=3062 rendered=3062 dropped=88 lastInputPts=11811000 lastInputElapsedMs=48870736 lastRenderedElapsedMs=48870611 msSinceLastInput=0 msSinceLastRendered=125
+09-03 15:44:25.619  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:25.629  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:25.835 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:25.895 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:26.068  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:26.070  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:26.340 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:26.377 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:26.417 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:26.420 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3204 queued=3115 output=3095 rendered=3095 dropped=88 lastInputPts=12879000 lastInputElapsedMs=48871770 lastRenderedElapsedMs=48871732 msSinceLastInput=0 msSinceLastRendered=38
+09-03 15:44:26.561  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:26.562  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:26.843 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:26.920 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:27.119  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:27.121  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:27.378 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:27.396 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:27.425 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:27.435 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3235 queued=3146 output=3126 rendered=3126 dropped=88 lastInputPts=13913000 lastInputElapsedMs=48872785 lastRenderedElapsedMs=48872746 msSinceLastInput=0 msSinceLastRendered=39
+09-03 15:44:27.615  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:27.618  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:27.925 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:27.952 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:28.193  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:28.196  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:28.394 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:28.454 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:28.466 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3266 queued=3177 output=3157 rendered=3157 dropped=88 lastInputPts=14948000 lastInputElapsedMs=48873815 lastRenderedElapsedMs=48873781 msSinceLastInput=1 msSinceLastRendered=35
+09-03 15:44:28.472 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:28.657  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:28.659  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:28.959 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:28.984 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:29.245  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:29.250  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:29.400 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:29.461 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:29.488 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3296 queued=3207 output=3187 rendered=3187 dropped=88 lastInputPts=15949000 lastInputElapsedMs=48874838 lastRenderedElapsedMs=48874790 msSinceLastInput=0 msSinceLastRendered=48
+09-03 15:44:29.495 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:29.962 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:30.039 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:30.217  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:30.222  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:30.424 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:30.464 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:30.505 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3327 queued=3238 output=3218 rendered=3218 dropped=88 lastInputPts=16983000 lastInputElapsedMs=48875855 lastRenderedElapsedMs=48875834 msSinceLastInput=0 msSinceLastRendered=21
+09-03 15:44:30.570 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:30.966 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:31.105 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:31.247  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:31.250  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:31.428 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:31.467 16531 17464 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:31.565 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3358 queued=3269 output=3249 rendered=3249 dropped=88 lastInputPts=18018000 lastInputElapsedMs=48876915 lastRenderedElapsedMs=48876851 msSinceLastInput=0 msSinceLastRendered=64
+09-03 15:44:31.641 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:31.968 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:32.151 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:32.206  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:32.208  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:32.434 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:32.468 16531 17464 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:32.570 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3388 queued=3300 output=3280 rendered=3280 dropped=88 lastInputPts=19019000 lastInputElapsedMs=48877912 lastRenderedElapsedMs=48877920 msSinceLastInput=8 msSinceLastRendered=0
+09-03 15:44:32.672 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:32.968 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:33.178 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:33.435 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:33.500 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:33.610 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3418 queued=3329 output=3309 rendered=3309 dropped=88 lastInputPts=20020000 lastInputElapsedMs=48878959 lastRenderedElapsedMs=48878865 msSinceLastInput=1 msSinceLastRendered=95
+09-03 15:44:33.705 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:34.005 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:34.235 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:34.436 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:34.547 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:34.610 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3450 queued=3362 output=3342 rendered=3342 dropped=88 lastInputPts=21087000 lastInputElapsedMs=48879953 lastRenderedElapsedMs=48879960 msSinceLastInput=7 msSinceLastRendered=0
+09-03 15:44:34.755 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:35.063 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:35.286 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:35.460 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:35.566 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:35.614 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3480 queued=3392 output=3372 rendered=3372 dropped=88 lastInputPts=22088000 lastInputElapsedMs=48880958 lastRenderedElapsedMs=48880964 msSinceLastInput=6 msSinceLastRendered=0
+09-03 15:44:35.809 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:36.071 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:36.318 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:36.461 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:36.581 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:36.631 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3510 queued=3421 output=3400 rendered=3400 dropped=88 lastInputPts=23089000 lastInputElapsedMs=48881981 lastRenderedElapsedMs=48881948 msSinceLastInput=0 msSinceLastRendered=33
+09-03 15:44:36.835 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:37.097 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:37.387 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:37.462 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:37.601 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:37.638 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3541 queued=3452 output=3432 rendered=3432 dropped=88 lastInputPts=24124000 lastInputElapsedMs=48882987 lastRenderedElapsedMs=48882967 msSinceLastInput=0 msSinceLastRendered=20
+09-03 15:44:37.905 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:38.135 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:38.415 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:38.467 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:38.639 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3571 queued=3483 output=3463 rendered=3463 dropped=88 lastInputPts=25125000 lastInputElapsedMs=48883983 lastRenderedElapsedMs=48883989 msSinceLastInput=6 msSinceLastRendered=0
+09-03 15:44:38.669 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:38.946 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:39.174 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:39.468 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:39.494 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:39.643 16531 16727 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3601 queued=3513 output=3493 rendered=3493 dropped=88 lastInputPts=26126000 lastInputElapsedMs=48884987 lastRenderedElapsedMs=48884993 msSinceLastInput=6 msSinceLastRendered=0
+09-03 15:44:39.675 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:40.012 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:40.206 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:40.472 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:40.562 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:40.654 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3631 queued=3542 output=3522 rendered=3522 dropped=88 lastInputPts=27127000 lastInputElapsedMs=48886004 lastRenderedElapsedMs=48885962 msSinceLastInput=0 msSinceLastRendered=42
+09-03 15:44:40.734 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:41.115 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:41.237 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:41.376  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:41.381  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:41.473  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:41.473 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:41.478  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:41.645 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:41.675 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3662 queued=3573 output=3553 rendered=3553 dropped=88 lastInputPts=28161000 lastInputElapsedMs=48887025 lastRenderedElapsedMs=48886995 msSinceLastInput=0 msSinceLastRendered=30
+09-03 15:44:41.737 16531 17464 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.146 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.255 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.424  8092  8671 I NotificationPipeline: Processing new notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:42.427  8092  8671 I NotificationPipeline: Discarding notification: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:42.473 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.652 16531 16727 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.677 16531 17464 I GoProH264Preview: PIPELINE generation=2 surface=185994783 decoderState=DECODING received=3692 queued=3603 output=3583 rendered=3583 dropped=88 lastInputPts=29162000 lastInputElapsedMs=48888027 lastRenderedElapsedMs=48888002 msSinceLastInput=0 msSinceLastRendered=25
+09-03 15:44:42.769 16531 16725 I CaptureForegroundService: GoPro ingress state=LIVE; destination=rtmp://192.168.1.175:1935/gopro; detail=RTMP stream metadata inspected.
+09-03 15:44:42.888 16531 16531 I CaptureForegroundService: GoPro ingress state=STOPPED; destination=null; detail=RTMP listener stopped.
+09-03 15:44:42.926  8092  8671 I NotificationPipeline: Processing notification dismissal on phone: 0|com.foresight.gateway|1001|null|10427
+09-03 15:44:43.349 16531 16531 I GatewayActivity: PREVIEW_COVER_VISIBILITY old=GONE new=VISIBLE status=IDLE statusDetail=FIELD GoPro capture stopped; ingest remains active previewOwner=PHONE ingress=STOPPED surfaceValid=true activityLifecycle=RESUMED elapsedMs=48888699
+09-03 15:44:43.349 16531 16727 I GoProH264Preview: DECODER_RELEASE reason=Preview surface detached. decoderInstance=2 generation=2 surface=null state=DECODING decoder=c2.exynos.h264.decoder codec=h264 format=1280x720 representation=AVCC nalLength=4 sps=1 pps=1 elapsedMs=48888699

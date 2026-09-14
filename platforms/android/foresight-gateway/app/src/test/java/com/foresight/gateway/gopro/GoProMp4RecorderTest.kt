@@ -37,6 +37,31 @@ class GoProMp4RecorderTest {
     }
 
     @Test
+    fun `recorder preserves arm and first muxed keyframe timing anchors`() {
+        val clock = longArrayOf(1_000_000_000L, 1_100_000_000L, 1_200_000_000L)
+        var index = 0
+        val recorder = GoProMp4Recorder(
+            outputDirectory = Files.createTempDirectory("gopro-recorder-test").toFile(),
+            muxerFactory = GoProMp4MuxerFactory { FakeMuxer(it) },
+            validator = {},
+            executor = Executor { it.run() },
+            monotonicNanos = { clock[index++].also { } },
+        )
+        recorder.start(videoFormat(generation = 9), audioFormat(generation = 9))
+        recorder.acceptSample(videoSample(8_765L, keyFrame = true, generation = 9))
+
+        val diagnostics = recorder.diagnostics()
+        val context = requireNotNull(recorder.localRecordingContext())
+        assertEquals(1_000_000_000L, diagnostics.armMonotonicNanos)
+        assertEquals(1_100_000_000L, diagnostics.firstMuxedKeyframeMonotonicNanos)
+        assertEquals(8_765L, diagnostics.firstMuxedSourcePtsUs)
+        assertEquals(8_765L, diagnostics.normalizedMp4OriginPtsUs)
+        assertEquals(0L, context.timelineAnchor?.mp4PtsUs)
+        assertEquals(8_765L, context.timelineAnchor?.sourcePtsUs)
+        assertEquals("9", context.sourceGenerationId)
+    }
+
+    @Test
     fun `manual stop saves only after muxer finalization`() {
         val fixture = Fixture()
         fixture.recorder.start(videoFormat(), audioFormat())
@@ -63,6 +88,7 @@ class GoProMp4RecorderTest {
             validator = {},
             executor = executor,
             capacity = 2,
+            monotonicNanos = { 1_000_000L },
         )
         recorder.start(videoFormat(), audioFormat())
         recorder.acceptSample(videoSample(1_000, true))
@@ -155,6 +181,7 @@ class GoProMp4RecorderTest {
             muxerFactory = GoProMp4MuxerFactory { output -> FakeMuxer(output).also { muxer = it } },
             validator = {},
             executor = Executor { it.run() },
+            monotonicNanos = { 1_000_000L },
         )
     }
 
@@ -202,6 +229,7 @@ class GoProMp4RecorderTest {
             },
             validator = validator,
             executor = Executor { it.run() },
+            monotonicNanos = { 1_000_000L },
         )
     }
 
